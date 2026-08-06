@@ -14,40 +14,49 @@ import {
   BookOpen,
   Quote,
   MessageSquare,
+  Clock,
+  Calendar,
+  User,
+  Tag,
+  RefreshCw,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+
+interface Author {
+  name: string;
+  handle: string;
+  avatar: string;
+}
 
 interface PoemPost {
   id: string;
   title: string;
-  author: {
-    name: string;
-    handle: string;
-    avatar: string;
-  };
-  stanza: string;
   category: string;
+  author: Author;
+  stanza: string;
   readTime: string;
   likes: number;
   comments: number;
   hasAudio?: boolean;
-  date: string;
+  publishedAt: string;
+  updatedAt: string;
 }
 
+// Lightweight animation variants safe for IoT hardware and mobile GPUs
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: { staggerChildren: 0.12, delayChildren: 0.05 },
+    transition: { staggerChildren: 0.08, delayChildren: 0.02 },
   },
 };
 
 const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 16 },
+  hidden: { opacity: 0, y: 12 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
+    transition: { duration: 0.4, ease: [0.25, 1, 0.5, 1] },
   },
 };
 
@@ -69,6 +78,7 @@ export default function Home() {
           comments,
           has_audio,
           created_at,
+          updated_at,
           authors (
             name,
             handle,
@@ -83,18 +93,27 @@ export default function Home() {
         const formattedPoems: PoemPost[] = data.map((item: any) => ({
           id: item.id,
           title: item.title,
+          category: item.category || "Philosophy",
           author: {
-            name: item.authors?.name || "Anonymous",
-            handle: item.authors?.handle || "@anonymous",
-            avatar: item.authors?.avatar || "A",
+            name: item.authors?.name || "John Doe",
+            handle: item.authors?.handle || "@johndoe",
+            avatar: item.authors?.avatar || "JD",
           },
           stanza: item.stanza,
-          category: item.category,
-          readTime: item.read_time,
-          likes: item.likes,
-          comments: item.comments,
-          hasAudio: item.has_audio,
-          date: new Date(item.created_at).toLocaleDateString(),
+          readTime: item.read_time || "3 min read",
+          likes: item.likes || 0,
+          comments: item.comments || 0,
+          hasAudio: item.has_audio || false,
+          publishedAt: new Date(item.created_at).toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "long",
+            year: "numeric",
+          }),
+          updatedAt: new Date(item.updated_at || item.created_at).toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "long",
+            year: "numeric",
+          }),
         }));
         setFeedPoems(formattedPoems);
       }
@@ -105,7 +124,8 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#2C2A29] relative overflow-x-hidden font-sans">
+    <div className="min-h-screen bg-[#FAF7F2] text-[#2C2A29] relative overflow-x-hidden font-sans antialiased touch-manipulation">
+      {/* Subtle Noise Texture Background */}
       <div
         className="fixed inset-0 pointer-events-none opacity-[0.035] z-50 mix-blend-multiply"
         aria-hidden="true"
@@ -114,60 +134,65 @@ export default function Home() {
         }}
       />
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 grid lg:grid-cols-12 gap-8 lg:gap-10">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 lg:py-12 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10">
+        
+        {/* Main Feed Section */}
         <main className="lg:col-span-8 space-y-6 sm:space-y-8">
-          <div className="flex items-center justify-between border-b border-[#E3D9CC] pb-3 sm:pb-4">
-            <div className="flex items-center gap-4 sm:gap-6">
-              <button className="flex items-center gap-2 font-serif text-xs sm:text-sm font-medium text-[#2C2A29] border-b-2 border-[#2C2A29] pb-3 sm:pb-4 -mb-[14px] sm:-mb-[18px]">
-                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#2C2A29]" />
+          
+          {/* Feed Header Navigation */}
+          <nav className="flex items-center justify-between border-b border-[#E3D9CC] pb-3 sm:pb-4">
+            <div className="flex items-center gap-3 sm:gap-6">
+              <button className="flex items-center gap-2 font-serif text-xs sm:text-sm font-semibold text-[#2C2A29] border-b-2 border-[#2C2A29] pb-3 sm:pb-4 -mb-[14px] sm:-mb-[18px] min-h-[44px]">
+                <Sparkles className="w-4 h-4 text-[#2C2A29]" />
                 <span>Anthology Feed</span>
               </button>
-              <button className="flex items-center gap-2 font-serif text-xs sm:text-sm text-[#7C7775] hover:text-[#2C2A29] pb-3 sm:pb-4 -mb-[14px] sm:-mb-[18px] transition-colors">
-                <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span>Trending Stanzas</span>
+              <button className="flex items-center gap-2 font-serif text-xs sm:text-sm text-[#7C7775] hover:text-[#2C2A29] pb-3 sm:pb-4 -mb-[14px] sm:-mb-[18px] transition-colors min-h-[44px]">
+                <TrendingUp className="w-4 h-4" />
+                <span>Trending Works</span>
               </button>
             </div>
             <span className="hidden sm:inline-block text-[10px] sm:text-[11px] font-mono text-[#8C827A] uppercase tracking-widest">
               Issue No. 128
             </span>
-          </div>
+          </nav>
 
+          {/* Create Post Banner */}
           <motion.div
-            initial={{ opacity: 0, y: 12 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-            className="p-4 sm:p-6 rounded-2xl bg-[#F3EFEA]/80 border border-[#E3D9CC] shadow-[0_2px_10px_rgba(44,42,41,0.02)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+            transition={{ duration: 0.4 }}
+            className="p-4 sm:p-5 rounded-xl sm:rounded-2xl bg-[#F3EFEA]/80 border border-[#E3D9CC] shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
           >
             <div className="flex items-center gap-3.5">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#E8E2D9] border border-[#D8D2C6] flex items-center justify-center font-serif text-xs sm:text-sm font-medium text-[#2C2A29] shrink-0">
+              <div className="w-10 h-10 rounded-full bg-[#E8E2D9] border border-[#D8D2C6] flex items-center justify-center font-serif text-sm font-semibold text-[#2C2A29] shrink-0">
                 ER
               </div>
               <div>
-                <p className="font-serif text-xs sm:text-sm font-medium text-[#2C2A29]">
-                  Compose a new stanza...
+                <p className="font-serif text-sm font-medium text-[#2C2A29]">
+                  Compose a new article or stanza...
                 </p>
-                <p className="text-[11px] sm:text-xs text-[#7C7775]">
+                <p className="text-xs text-[#7C7775]">
                   What quiet thoughts need room to breathe today?
                 </p>
               </div>
             </div>
-            <motion.div whileTap={{ scale: 0.96 }} className="w-full sm:w-auto">
-              <Link
-                href="/share"
-                className="w-full sm:w-auto block text-center px-4 py-2 sm:py-2 rounded-full bg-[#2C2A29] text-[#FAF8F5] text-xs font-serif hover:bg-[#3D3732] transition-colors shrink-0 shadow-sm active:scale-98"
-              >
-                Write Verse
-              </Link>
-            </motion.div>
+            <Link
+              href="/share"
+              className="w-full sm:w-auto inline-flex items-center justify-center min-h-[44px] px-5 py-2 rounded-full bg-[#2C2A29] text-[#FAF8F5] text-xs font-serif font-medium hover:bg-[#3D3732] active:scale-98 transition-all shadow-sm shrink-0"
+            >
+              Write Article
+            </Link>
           </motion.div>
 
+          {/* Feed Content Loader & List */}
           {loading ? (
-            <div className="text-center py-12 font-serif text-[#7C7775]">
-              Gathering poetic works...
+            <div className="text-center py-16 font-serif text-[#7C7775] space-y-3" aria-live="polite">
+              <RefreshCw className="w-5 h-5 animate-spin mx-auto text-[#8C827A]" />
+              <p className="text-sm">Gathering philosophical works...</p>
             </div>
           ) : feedPoems.length === 0 ? (
-            <div className="text-center py-12 font-serif text-[#7C7775]">
-              No poems found. Be the first to share a stanza!
+            <div className="text-center py-16 font-serif text-[#7C7775] bg-[#FAF8F5] rounded-2xl border border-[#E3D9CC]">
+              No articles found. Be the first to publish a piece!
             </div>
           ) : (
             <motion.div
@@ -177,134 +202,49 @@ export default function Home() {
               className="space-y-6 sm:space-y-8"
             >
               {feedPoems.map((poem) => (
-                <motion.article
-                  key={poem.id}
-                  variants={itemVariants}
-                  className="group relative bg-[#FAF8F5] border border-[#E3D9CC] rounded-2xl sm:rounded-3xl p-5 sm:p-8 lg:p-10 shadow-[0_4px_20px_rgba(44,42,41,0.02)] hover:shadow-[0_8px_30px_rgba(44,42,41,0.05)] hover:border-[#D5C9B8] transition-all duration-300"
-                >
-                  <div className="absolute left-0 top-6 bottom-6 w-[3px] bg-[#E8E2D9] rounded-r-full" />
-
-                  <div className="flex flex-wrap items-center justify-between gap-3 mb-5 sm:mb-6 pl-1 sm:pl-2">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#E8E2D9] border border-[#D8D2C6] flex items-center justify-center font-serif text-xs font-medium text-[#2C2A29] shrink-0">
-                        {poem.author.avatar}
-                      </div>
-                      <div>
-                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                          <span className="font-serif text-xs sm:text-sm font-medium text-[#2C2A29]">
-                            {poem.author.name}
-                          </span>
-                          <span className="text-[11px] sm:text-xs text-[#8C827A]">
-                            {poem.author.handle}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-[#8C827A]">
-                          <span>{poem.date}</span>
-                          <span>•</span>
-                          <span>{poem.readTime}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 self-start sm:self-auto">
-                      <span className="px-2.5 py-1 rounded-full bg-[#F3EFEA] border border-[#E3D9CC] text-[9px] sm:text-[10px] font-mono text-[#7C7775] uppercase tracking-wider">
-                        {poem.category}
-                      </span>
-                      {poem.hasAudio && (
-                        <motion.button
-                          whileTap={{ scale: 0.92 }}
-                          className="p-1.5 sm:p-2 rounded-full bg-[#2C2A29] text-[#FAF8F5] hover:bg-[#3D3732] transition-colors"
-                          title="Listen to Spoken Recitation"
-                        >
-                          <Play className="w-3 h-3 fill-current ml-0.5" />
-                        </motion.button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="pl-1 sm:pl-2 pr-1 sm:pr-2 mb-6 sm:mb-8">
-                    <h2 className="font-serif text-lg sm:text-2xl text-[#1F1E1D] font-normal tracking-tight mb-3 sm:mb-4 group-hover:text-[#4A423A] transition-colors">
-                      {poem.title}
-                    </h2>
-                    <blockquote className="font-serif text-base sm:text-lg leading-relaxed sm:leading-loose text-[#2C2A29] whitespace-pre-line pl-3 sm:pl-4 border-l-2 border-[#D8D2C6] italic">
-                      {poem.stanza}
-                    </blockquote>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-4 sm:pt-6 border-t border-[#E3D9CC]/70 pl-1 sm:pl-2">
-                    <div className="flex items-center gap-4 sm:gap-6">
-                      <motion.button
-                        whileTap={{ scale: 0.9 }}
-                        className="flex items-center gap-1.5 text-xs text-[#665E56] hover:text-[#8C3A32] transition-colors py-1"
-                      >
-                        <Heart className="w-4 h-4" />
-                        <span>{poem.likes}</span>
-                      </motion.button>
-                      <motion.button
-                        whileTap={{ scale: 0.9 }}
-                        className="flex items-center gap-1.5 text-xs text-[#665E56] hover:text-[#2C2A29] transition-colors py-1"
-                      >
-                        <MessageSquare className="w-4 h-4" />
-                        <span>{poem.comments}</span>
-                      </motion.button>
-                    </div>
-
-                    <div className="flex items-center gap-1 sm:gap-3">
-                      <motion.button
-                        whileTap={{ scale: 0.9 }}
-                        className="p-2 text-[#665E56] hover:text-[#2C2A29] transition-colors"
-                        title="Save Stanza"
-                      >
-                        <Bookmark className="w-4 h-4" />
-                      </motion.button>
-                      <motion.button
-                        whileTap={{ scale: 0.9 }}
-                        className="p-2 text-[#665E56] hover:text-[#2C2A29] transition-colors"
-                        title="Share"
-                      >
-                        <Share2 className="w-4 h-4" />
-                      </motion.button>
-                    </div>
-                  </div>
-                </motion.article>
+                <ArticleCard key={poem.id} poem={poem} />
               ))}
             </motion.div>
           )}
         </main>
 
+        {/* Sidebar Section */}
         <aside className="lg:col-span-4 space-y-6 sm:space-y-8">
+          
+          {/* Editor's Note */}
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="p-5 sm:p-6 rounded-2xl sm:rounded-3xl bg-[#F3EFEA]/90 border border-[#E3D9CC] shadow-sm space-y-3.5 sm:space-y-4"
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="p-5 sm:p-6 rounded-2xl bg-[#F3EFEA]/90 border border-[#E3D9CC] shadow-sm space-y-3"
           >
             <div className="flex items-center gap-2 text-[10px] sm:text-[11px] font-mono text-[#7C7775] uppercase tracking-widest">
               <Quote className="w-3.5 h-3.5 text-[#2C2A29]" />
               <span>Editor&apos;s Note</span>
             </div>
             <p className="font-serif text-xs sm:text-sm italic text-[#4A423A] leading-relaxed">
-              &ldquo;Poetry is an act of quiet preservation. In this room,
+              &ldquo;Critical thinking is an act of quiet preservation. In this room,
               every line is given space to resonate without competition.&rdquo;
             </p>
-            <div className="pt-2 border-t border-[#E3D9CC]/60 flex items-center justify-between">
-              <span className="text-xs font-serif font-medium text-[#2C2A29]">
+            <div className="pt-3 border-t border-[#E3D9CC]/60 flex items-center justify-between text-xs">
+              <span className="font-serif font-medium text-[#2C2A29]">
                 Stanza Editorial Board
               </span>
-              <span className="text-[10px] font-mono text-[#8C827A]">
+              <span className="font-mono text-[10px] text-[#8C827A]">
                 Vol. IV
               </span>
             </div>
           </motion.div>
 
+          {/* Featured Chapbook */}
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="p-5 sm:p-6 rounded-2xl sm:rounded-3xl bg-[#2C2723] text-[#FAF8F5] space-y-3.5 sm:space-y-4 shadow-md relative overflow-hidden"
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="p-5 sm:p-6 rounded-2xl bg-[#2C2723] text-[#FAF8F5] space-y-3.5 shadow-md relative overflow-hidden"
           >
             <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
-              <BookOpen className="w-20 h-20 sm:w-24 sm:h-24 text-[#FAF8F5]" />
+              <BookOpen className="w-24 h-24 text-[#FAF8F5]" />
             </div>
             <span className="text-[10px] font-mono uppercase tracking-widest text-[#C4BBAF] block">
               Featured Chapbook
@@ -318,24 +258,26 @@ export default function Home() {
             </p>
             <Link
               href="/chapbooks/autumn-light"
-              className="inline-flex items-center gap-2 pt-1 sm:pt-2 text-xs font-serif text-[#D8D2C6] hover:text-[#FAF8F5] transition-colors group"
+              className="inline-flex items-center gap-2 min-h-[44px] text-xs font-serif text-[#D8D2C6] hover:text-[#FAF8F5] transition-colors group"
             >
               <span>Read Collection</span>
-              <Feather className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              <Feather className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </Link>
           </motion.div>
 
+          {/* Categories */}
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className="p-5 sm:p-6 rounded-2xl sm:rounded-3xl bg-[#FAF8F5] border border-[#E3D9CC] space-y-3.5 sm:space-y-4"
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="p-5 sm:p-6 rounded-2xl bg-[#FAF8F5] border border-[#E3D9CC] space-y-3.5"
           >
             <h4 className="font-serif text-xs sm:text-sm font-medium text-[#2C2A29]">
-             Categories
+              Categories
             </h4>
-            <div className="flex flex-wrap gap-1.5 sm:gap-2">
+            <div className="flex flex-wrap gap-2">
               {[
+                "Philosophy",
                 "Reflections",
                 "Free Verse",
                 "Sonnets",
@@ -344,19 +286,103 @@ export default function Home() {
                 "Elegies",
                 "Urban Life",
               ].map((tag) => (
-                <motion.div key={tag} whileTap={{ scale: 0.95 }}>
-                  <Link
-                    href={`/categories/${tag.toLowerCase().replace(/\s+/g, "-")}`}
-                    className="inline-block px-3 py-1.5 rounded-full bg-[#F3EFEA] border border-[#E3D9CC] text-[11px] sm:text-xs text-[#5A5654] hover:bg-[#2C2A29] hover:text-[#FAF8F5] transition-all"
-                  >
-                    {tag}
-                  </Link>
-                </motion.div>
+                <Link
+                  key={tag}
+                  href={`/categories/${tag.toLowerCase().replace(/\s+/g, "-")}`}
+                  className="inline-flex items-center min-h-[36px] px-3 py-1.5 rounded-full bg-[#F3EFEA] border border-[#E3D9CC] text-xs text-[#5A5654] hover:bg-[#2C2A29] hover:text-[#FAF8F5] transition-all"
+                >
+                  {tag}
+                </Link>
               ))}
             </div>
           </motion.div>
         </aside>
+
       </div>
     </div>
+  );
+}
+
+{/* Article Card Component adhering strictly to your structural prompt */}
+function ArticleCard({ poem }: { poem: PoemPost }) {
+  return (
+    <motion.article
+      variants={itemVariants}
+      className="group bg-[#FAF8F5] border border-[#E3D9CC] rounded-2xl p-5 sm:p-7 lg:p-8 shadow-[0_4px_20px_rgba(44,42,41,0.02)] hover:shadow-[0_8px_30px_rgba(44,42,41,0.05)] hover:border-[#D5C9B8] transition-all duration-300 flex flex-col justify-between"
+    >
+      <div>
+        {/* Category Header */}
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#F3EFEA] border border-[#E3D9CC] text-[10px] font-mono text-[#665E56] uppercase tracking-wider font-semibold">
+            <Tag className="w-3 h-3 text-[#7C7775]" />
+            {poem.category}
+          </span>
+          <span className="text-[11px] font-mono text-[#8C827A] flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            {poem.readTime}
+          </span>
+        </div>
+
+        {/* Article Title */}
+        <h2 className="font-serif text-xl sm:text-2xl lg:text-3xl text-[#1F1E1D] font-medium tracking-tight mb-4 group-hover:text-[#4A423A] transition-colors leading-snug">
+          {poem.title}
+        </h2>
+
+        {/* Central Content Box */}
+        <div className="relative my-4 p-5 sm:p-6 rounded-xl bg-[#F6F2EC] border border-[#E5DCD0] border-l-4 border-l-[#2C2A29] shadow-inner">
+          <blockquote className="font-serif text-base sm:text-lg leading-relaxed text-[#2C2A29] whitespace-pre-line italic">
+            &ldquo;{poem.stanza}&rdquo;
+          </blockquote>
+        </div>
+      </div>
+
+      {/* Metadata & Actions */}
+      <div className="mt-6 pt-4 border-t border-[#E3D9CC] space-y-4">
+        {/* Structured Author & Date Details */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-[#665E56] font-serif">
+          <div className="flex items-center gap-1.5">
+            <User className="w-3.5 h-3.5 text-[#8C827A] shrink-0" />
+            <span className="truncate">Written By: <strong className="font-semibold text-[#2C2A29]">{poem.author.name}</strong></span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-[#8C827A] shrink-0" />
+            <span className="truncate">Written On: {poem.publishedAt}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <RefreshCw className="w-3.5 h-3.5 text-[#8C827A] shrink-0" />
+            <span className="truncate">Last Updated: {poem.updatedAt}</span>
+          </div>
+        </div>
+
+        {/* Action Controls */}
+        <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center gap-4">
+            <button className="flex items-center gap-1.5 min-h-[44px] min-w-[44px] text-xs text-[#665E56] hover:text-[#8C3A32] active:scale-95 transition-all">
+              <Heart className="w-4 h-4" />
+              <span>{poem.likes}</span>
+            </button>
+            <button className="flex items-center gap-1.5 min-h-[44px] min-w-[44px] text-xs text-[#665E56] hover:text-[#2C2A29] active:scale-95 transition-all">
+              <MessageSquare className="w-4 h-4" />
+              <span>{poem.comments}</span>
+            </button>
+            {poem.hasAudio && (
+              <button className="flex items-center gap-1 min-h-[44px] px-3 rounded-full bg-[#2C2A29] text-[#FAF8F5] text-xs hover:bg-[#3D3732] active:scale-95 transition-all">
+                <Play className="w-3 h-3 fill-current" />
+                <span>Listen</span>
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-[#665E56] hover:text-[#2C2A29] active:scale-95 transition-all" title="Save Article">
+              <Bookmark className="w-4 h-4" />
+            </button>
+            <button className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-[#665E56] hover:text-[#2C2A29] active:scale-95 transition-all" title="Share Article">
+              <Share2 className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </motion.article>
   );
 }
