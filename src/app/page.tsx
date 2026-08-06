@@ -159,7 +159,7 @@ export default function LandingPage() {
             className="flex items-center justify-center gap-4 pt-4"
           >
             <Link
-              href="#trending-section"
+              href="/feed"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#2C2A29] text-[#FAF8F5] text-xs font-sans font-medium uppercase tracking-wider hover:bg-[#3D3732] transition-all shadow-sm"
             >
               <span>Explore Content</span>
