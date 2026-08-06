@@ -63,12 +63,14 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const activeTag = document.activeElement?.tagName;
+      const activeElement = document.activeElement as HTMLElement | null;
+      const activeTag = activeElement?.tagName;
+
       if (
         e.key === "/" &&
         activeTag !== "INPUT" &&
         activeTag !== "TEXTAREA" &&
-        !document.activeElement?.isContentEditable
+        !activeElement?.isContentEditable
       ) {
         e.preventDefault();
         if (window.innerWidth < 1024) {
