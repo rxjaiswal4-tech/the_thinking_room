@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Lora, Inter } from 'next/font/google';
-import Sidebar from './components/Sidebar';
-import { Navbar } from './components/Navbar';
+// import Sidebar from './components/Sidebar';
+// import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { Navigation } from "./components/Navigation";
 import './globals.css';
