@@ -332,7 +332,7 @@ export default function Home() {
             className="p-5 sm:p-6 rounded-2xl sm:rounded-3xl bg-[#FAF8F5] border border-[#E3D9CC] space-y-3.5 sm:space-y-4"
           >
             <h4 className="font-serif text-xs sm:text-sm font-medium text-[#2C2A29]">
-              Explore Categories
+             Categories
             </h4>
             <div className="flex flex-wrap gap-1.5 sm:gap-2">
               {[
