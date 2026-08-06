@@ -113,7 +113,7 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
 
       {/* Sidebar Navigation */}
       <aside
-        className={`fixed top-0 left-0 z-40 h-screen bg-[#FAFAFA] border-r border-[#EAE8E4] flex flex-col justify-between p-4 shadow-xl lg:shadow-none transition-all duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 z-40 h-screen bg-[#FAFAFA] border-r border-[#EAE8E4] flex flex-col justify-between p-4 shadow-xl lg:shadow-none transition-all duration-300 ease-in-out overflow-y-auto ${
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         } ${isCollapsed ? "lg:w-20" : "lg:w-72"} w-72`}
       >
@@ -126,7 +126,7 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
           {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
         </button>
 
-        <div className="flex flex-col gap-6 pt-12 lg:pt-0 overflow-hidden">
+        <div className="flex flex-col gap-6 pt-12 lg:pt-0">
           {/* Logo / Brand */}
           <div className={`pt-2 ${isCollapsed ? "lg:flex lg:justify-center" : "px-2"}`}>
             <Link href="/" className="inline-flex items-center gap-3 group focus:outline-none">
@@ -206,7 +206,7 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
 
         {/* Footer Poe Quote */}
         {!isCollapsed && (
-          <div className="p-4 rounded-2xl bg-[#F5F2EB]/60 border border-[#EAE5DC]">
+          <div className="p-4 rounded-2xl bg-[#F5F2EB]/60 border border-[#EAE5DC] mt-6">
             <p className="font-serif text-xs italic text-[#5C544C]">
               &ldquo;Poetry is the rhythmical creation of beauty in words.&rdquo;
             </p>
