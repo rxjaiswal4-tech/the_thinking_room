@@ -63,14 +63,15 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const activeElement = document.activeElement as HTMLElement | null;
-      const activeTag = activeElement?.tagName;
+      const activeEl = document.activeElement as HTMLElement | null;
+      const activeTag = activeEl?.tagName;
+      const isEditable = activeEl?.isContentEditable ?? false;
 
       if (
         e.key === "/" &&
         activeTag !== "INPUT" &&
         activeTag !== "TEXTAREA" &&
-        !activeElement?.isContentEditable
+        !isEditable
       ) {
         e.preventDefault();
         if (window.innerWidth < 1024) {
@@ -113,7 +114,7 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
 
       {/* Sidebar Navigation */}
       <aside
-        className={`fixed top-0 left-0 z-40 h-screen bg-[#FAFAFA] border-r border-[#EAE8E4] flex flex-col justify-between p-4 shadow-xl lg:shadow-none transition-all duration-300 ease-in-out overflow-y-auto ${
+        className={`fixed top-0 left-0 z-40 h-screen bg-[#FAFAFA] border-r border-[#EAE8E4] flex flex-col justify-between p-4 shadow-xl lg:shadow-none transition-all duration-300 ease-in-out ${
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         } ${isCollapsed ? "lg:w-20" : "lg:w-72"} w-72`}
       >
@@ -123,10 +124,14 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
           className="hidden lg:flex absolute -right-3.5 top-8 z-50 p-1.5 rounded-full bg-[#FAFAFA] border border-[#EAE8E4] text-[#665E56] hover:text-[#2C2723] hover:bg-[#F3F1ED] shadow-sm active:scale-95 transition-transform focus:outline-none"
           aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+          {isCollapsed ? (
+            <ChevronRight className="w-3.5 h-3.5" />
+          ) : (
+            <ChevronLeft className="w-3.5 h-3.5" />
+          )}
         </button>
 
-        <div className="flex flex-col gap-6 pt-12 lg:pt-0">
+        <div className="flex flex-col gap-6 pt-12 lg:pt-0 overflow-hidden">
           {/* Logo / Brand */}
           <div className={`pt-2 ${isCollapsed ? "lg:flex lg:justify-center" : "px-2"}`}>
             <Link href="/" className="inline-flex items-center gap-3 group focus:outline-none">
@@ -206,7 +211,7 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
 
         {/* Footer Poe Quote */}
         {!isCollapsed && (
-          <div className="p-4 rounded-2xl bg-[#F5F2EB]/60 border border-[#EAE5DC] mt-6">
+          <div className="p-4 rounded-2xl bg-[#F5F2EB]/60 border border-[#EAE5DC]">
             <p className="font-serif text-xs italic text-[#5C544C]">
               &ldquo;Poetry is the rhythmical creation of beauty in words.&rdquo;
             </p>
@@ -268,7 +273,10 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
                 placeholder="Search stanzas..."
                 className="w-full text-sm bg-transparent text-[#2C2A29] focus:outline-none"
               />
-              <button onClick={() => setIsMobileSearchOpen(false)} className="p-1 rounded-full text-[#8C827A]">
+              <button
+                onClick={() => setIsMobileSearchOpen(false)}
+                className="p-1 rounded-full text-[#8C827A]"
+              >
                 <X className="w-5 h-5" />
               </button>
             </motion.div>
@@ -305,7 +313,10 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
             <AnimatePresence>
               {isProfileOpen && (
                 <>
-                  <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)} />
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsProfileOpen(false)}
+                  />
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95, y: -5 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -313,8 +324,12 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
                     className="absolute right-0 mt-2 w-48 rounded-2xl bg-[#FAF8F5] border border-[#E3D9CC] shadow-lg p-1.5 z-50"
                   >
                     <div className="px-3 py-2 border-b border-[#E3D9CC]/60 mb-1">
-                      <p className="font-serif text-xs font-medium text-[#2C2A29]">Elena Rostova</p>
-                      <p className="text-[10px] text-[#8C827A] font-mono">@elena_rostova</p>
+                      <p className="font-serif text-xs font-medium text-[#2C2A29]">
+                        Elena Rostova
+                      </p>
+                      <p className="text-[10px] text-[#8C827A] font-mono">
+                        @elena_rostova
+                      </p>
                     </div>
                     <Link
                       href="/profile"
