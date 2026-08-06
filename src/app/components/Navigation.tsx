@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -20,6 +20,7 @@ import {
   User,
   Settings,
   LogOut,
+  Rss,
 } from "lucide-react";
 
 interface NavItem {
@@ -29,7 +30,8 @@ interface NavItem {
   icon: React.ElementType;
 }
 
-const mainNavItems: NavItem[] = [
+const NAV_ITEMS: NavItem[] = [
+  { label: "Poetic Stream", sublabel: "The daily feed", href: "/feed", icon: Rss },
   { label: "Thinking Room", sublabel: "Sanctuary of thought", href: "/", icon: Compass },
   { label: "Categories", sublabel: "Anthologies & themes", href: "/categories", icon: BookOpen },
   { label: "Saved Stanzas", sublabel: "Your quiet collection", href: "/saved", icon: Bookmark },
@@ -41,61 +43,59 @@ interface NavigationProps {
 
 export function Navigation({ onCollapseChange }: NavigationProps) {
   const pathname = usePathname();
-  const [isOpen, setIsOpen] = useState(false); // Mobile drawer state
-  const [isCollapsed, setIsCollapsed] = useState(false); // Desktop collapse state
+  const [isOpen, setIsOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [hasUnread, setHasUnread] = useState(true);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(false);
-  
-  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Detect desktop screen width safely
+  const inputRef = useRef<HTMLInputElement>(null);
+  const mobileInputRef = useRef<HTMLInputElement>(null);
+
+  // Safely sync collapse state to parent layout
   useEffect(() => {
-    const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    onCollapseChange?.(isCollapsed);
+  }, [isCollapsed, onCollapseChange]);
+
+  const toggleCollapse = useCallback(() => {
+    setIsCollapsed((prev) => !prev);
   }, []);
 
-  const toggleCollapse = () => {
-    const nextState = !isCollapsed;
-    setIsCollapsed(nextState);
-    if (onCollapseChange) onCollapseChange(nextState);
-  };
-
-  // Keyboard shortcut listener ('/')
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const activeTag = document.activeElement?.tagName;
       if (
         e.key === "/" &&
-        document.activeElement?.tagName !== "INPUT" &&
-        document.activeElement?.tagName !== "TEXTAREA"
+        activeTag !== "INPUT" &&
+        activeTag !== "TEXTAREA" &&
+        !document.activeElement?.isContentEditable
       ) {
         e.preventDefault();
-        setIsMobileSearchOpen(true);
-        setTimeout(() => inputRef.current?.focus(), 100);
+        if (window.innerWidth < 1024) {
+          setIsMobileSearchOpen(true);
+          setTimeout(() => mobileInputRef.current?.focus(), 50);
+        } else {
+          inputRef.current?.focus();
+        }
       } else if (e.key === "Escape") {
-        inputRef.current?.blur();
         setIsMobileSearchOpen(false);
+        setIsProfileOpen(false);
+        inputRef.current?.blur();
+        mobileInputRef.current?.blur();
       }
     };
+
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  useEffect(() => {
+    setIsOpen(false);
+  }, [pathname]);
+
   return (
     <>
-      {/* Mobile Toggle Button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="lg:hidden fixed top-3 left-4 z-50 p-2.5 rounded-full bg-[#FAFAFA] border border-[#EAE8E4] shadow-sm text-[#38332E] active:scale-95 transition-transform"
-        aria-label="Toggle Mobile Navigation"
-      >
-        {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-      </button>
-
-      {/* Mobile Backdrop */}
+      {/* Mobile Drawer Overlay */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -103,39 +103,36 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsOpen(false)}
-            className="lg:hidden fixed inset-0 bg-[#2C2723]/30 backdrop-blur-sm z-40"
+            className="lg:hidden fixed inset-0 bg-[#2C2723]/40 backdrop-blur-sm z-40"
+            aria-hidden="true"
           />
         )}
       </AnimatePresence>
 
-      {/* Sidebar Drawer */}
-      <motion.aside
-        initial={false}
-        animate={{
-          x: isDesktop ? 0 : isOpen ? 0 : "-100%",
-          width: isDesktop ? (isCollapsed ? 80 : 288) : 280,
-        }}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="fixed top-0 left-0 z-40 h-screen bg-[#FAFAFA] border-r border-[#EAE8E4] flex flex-col justify-between p-5 shadow-xl lg:shadow-none"
+      {/* Sidebar Navigation */}
+      <aside
+        className={`fixed top-0 left-0 z-40 h-screen bg-[#FAFAFA] border-r border-[#EAE8E4] flex flex-col justify-between p-4 shadow-xl lg:shadow-none transition-all duration-300 ease-in-out ${
+          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        } ${isCollapsed ? "lg:w-20" : "lg:w-72"} w-72`}
       >
-        {/* Desktop Collapse Handle */}
+        {/* Toggle Collapse Button */}
         <button
           onClick={toggleCollapse}
-          className="hidden lg:flex absolute -right-3.5 top-8 z-50 p-1.5 rounded-full bg-[#FAFAFA] border border-[#EAE8E4] text-[#665E56] hover:text-[#2C2723] hover:bg-[#F3F1ED] shadow-sm active:scale-95 transition-transform"
-          title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          className="hidden lg:flex absolute -right-3.5 top-8 z-50 p-1.5 rounded-full bg-[#FAFAFA] border border-[#EAE8E4] text-[#665E56] hover:text-[#2C2723] hover:bg-[#F3F1ED] shadow-sm active:scale-95 transition-transform focus:outline-none"
+          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
         </button>
 
-        {/* Top Brand & Links */}
-        <div className="flex flex-col gap-8 pt-10 lg:pt-0">
-          <div className={`pt-2 ${isCollapsed && isDesktop ? "px-0 text-center" : "px-2"}`}>
-            <Link href="/" onClick={() => setIsOpen(false)} className="inline-flex items-center gap-3">
-              <div className="p-2.5 rounded-2xl bg-[#F3F0EA] border border-[#E8E4DC] text-[#4A423A] shrink-0">
+        <div className="flex flex-col gap-6 pt-12 lg:pt-0 overflow-hidden">
+          {/* Logo / Brand */}
+          <div className={`pt-2 ${isCollapsed ? "lg:flex lg:justify-center" : "px-2"}`}>
+            <Link href="/" className="inline-flex items-center gap-3 group focus:outline-none">
+              <div className="p-2.5 rounded-2xl bg-[#F3F0EA] border border-[#E8E4DC] text-[#4A423A] shrink-0 group-hover:bg-[#EAE5DC] transition-colors">
                 <Feather className="w-5 h-5 stroke-[1.5]" />
               </div>
-              {(!isCollapsed || !isDesktop) && (
-                <div className="flex flex-col text-left overflow-hidden whitespace-nowrap">
+              {!isCollapsed && (
+                <div className="flex flex-col text-left overflow-hidden whitespace-nowrap transition-opacity duration-200">
                   <span className="font-serif text-xl tracking-tight text-[#2C2723] font-medium italic">
                     Verse & Muse
                   </span>
@@ -147,41 +144,43 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
             </Link>
           </div>
 
+          {/* Action Button */}
           <div>
             <Link
               href="/share"
-              onClick={() => setIsOpen(false)}
-              className={`w-full flex items-center p-3.5 rounded-2xl bg-[#2C2723] hover:bg-[#3D3732] text-[#FAF8F5] shadow-md border border-[#3D3732] ${
-                isCollapsed && isDesktop ? "justify-center" : "justify-between"
+              className={`w-full flex items-center p-3.5 rounded-2xl bg-[#2C2723] hover:bg-[#3D3732] text-[#FAF8F5] shadow-md border border-[#3D3732] transition-all ${
+                isCollapsed ? "lg:justify-center" : "justify-between"
               }`}
             >
               <div className="flex items-center gap-3">
                 <PenTool className="w-4 h-4 text-[#D8D2C6] shrink-0" />
-                {(!isCollapsed || !isDesktop) && (
-                  <span className="font-serif text-sm whitespace-nowrap">Share Your Thoughts</span>
+                {!isCollapsed && (
+                  <span className="font-serif text-sm whitespace-nowrap">
+                    Share Your Thoughts
+                  </span>
                 )}
               </div>
-              {(!isCollapsed || !isDesktop) && <Sparkles className="w-3.5 h-3.5 text-[#C4BBAF] shrink-0" />}
+              {!isCollapsed && <Sparkles className="w-3.5 h-3.5 text-[#C4BBAF] shrink-0" />}
             </Link>
           </div>
 
-          <nav className="flex flex-col gap-1.5">
-            {(!isCollapsed || !isDesktop) && (
+          {/* Nav Items */}
+          <nav className="flex flex-col gap-1.5" aria-label="Main Navigation">
+            {!isCollapsed && (
               <p className="px-3 text-[11px] font-mono tracking-widest uppercase text-[#9C928A] mb-1">
                 Navigation
               </p>
             )}
-            {mainNavItems.map((item) => {
+            {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
-              const isActive = pathname === item.href;
+              const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
 
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  onClick={() => setIsOpen(false)}
                   className={`group relative flex items-center gap-3.5 p-3 rounded-xl transition-colors ${
-                    isCollapsed && isDesktop ? "justify-center" : "px-3.5"
+                    isCollapsed ? "lg:justify-center" : "px-3.5"
                   } ${
                     isActive
                       ? "bg-[#F2EFE9] text-[#2C2723] font-medium border border-[#E5E0D8]"
@@ -189,7 +188,7 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
                   }`}
                 >
                   <Icon className="w-4 h-4 shrink-0" />
-                  {(!isCollapsed || !isDesktop) && (
+                  {!isCollapsed && (
                     <div className="flex flex-col overflow-hidden whitespace-nowrap">
                       <span className="font-serif text-sm leading-none">{item.label}</span>
                       {item.sublabel && (
@@ -203,8 +202,8 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
           </nav>
         </div>
 
-        {/* Epigraph */}
-        {(!isCollapsed || !isDesktop) && (
+        {/* Footer Poe Quote */}
+        {!isCollapsed && (
           <div className="p-4 rounded-2xl bg-[#F5F2EB]/60 border border-[#EAE5DC]">
             <p className="font-serif text-xs italic text-[#5C544C]">
               &ldquo;Poetry is the rhythmical creation of beauty in words.&rdquo;
@@ -214,65 +213,70 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
             </span>
           </div>
         )}
-      </motion.aside>
+      </aside>
 
-      {/* Optimized Dynamic Navbar */}
-      <motion.header
-        initial={false}
-        animate={{
-          left: isDesktop ? (isCollapsed ? 80 : 288) : 0,
-        }}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="fixed top-0 right-0 left-0 z-30 bg-[#FAF7F2]/85 backdrop-blur-md border-b border-[#EADFCF]/70 px-4 sm:px-8 py-3 flex items-center justify-between gap-2 sm:gap-4"
+      {/* Header Bar */}
+      <header
+        className={`fixed top-0 right-0 left-0 z-30 bg-[#FAF7F2]/85 backdrop-blur-md border-b border-[#EADFCF]/70 px-4 sm:px-8 py-3 flex items-center justify-between gap-3 transition-all duration-300 ease-in-out ${
+          isCollapsed ? "lg:pl-24" : "lg:pl-80"
+        }`}
       >
-        {/* Search Bar Container */}
-        <div className="flex-1 max-w-md ml-12 lg:ml-0">
-          {/* Mobile Expanded Overlay Search Bar */}
-          <AnimatePresence>
-            {isMobileSearchOpen && !isDesktop ? (
-              <motion.div
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -5 }}
-                className="absolute inset-x-0 top-0 h-full bg-[#FAF7F2] px-4 flex items-center gap-2 z-50"
-              >
-                <Search className="w-4 h-4 text-[#8C827A] shrink-0" />
-                <input
-                  ref={inputRef}
-                  type="text"
-                  placeholder="Search stanzas..."
-                  className="w-full text-xs bg-transparent text-[#2C2A29] focus:outline-none"
-                />
-                <button
-                  onClick={() => setIsMobileSearchOpen(false)}
-                  className="p-1 rounded-full text-[#8C827A]"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
+        <div className="flex items-center gap-3 flex-1 max-w-sm sm:max-w-md">
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="lg:hidden p-2 rounded-xl bg-[#FAFAFA] border border-[#EAE8E4] shadow-sm text-[#38332E] active:scale-95 transition-transform"
+            aria-label="Toggle Menu"
+          >
+            {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
 
-          {/* Regular Search Input */}
-          <div className="relative flex items-center">
+          <div className="relative flex-1 hidden sm:flex items-center">
             <Search className="absolute left-3.5 w-4 h-4 text-[#8C827A] pointer-events-none" />
             <input
               ref={inputRef}
               type="text"
-              placeholder="Search stanzas..."
-              className="w-full pl-9 pr-4 sm:pr-12 py-1.5 sm:py-2 text-xs sm:text-sm bg-[#F3EFEA]/80 border border-[#E3D9CC] rounded-full text-[#2C2A29] placeholder-[#8C827A] focus:outline-none focus:ring-1 focus:ring-[#2C2A29]"
+              placeholder="Search stanzas... (Press '/')"
+              className="w-full pl-9 pr-10 py-2 text-xs sm:text-sm bg-[#F3EFEA]/80 border border-[#E3D9CC] rounded-full text-[#2C2A29] placeholder-[#8C827A] focus:outline-none focus:ring-1 focus:ring-[#2C2A29]"
             />
-            <kbd className="hidden sm:inline-flex absolute right-3 items-center px-1.5 py-0.5 text-[10px] font-mono text-[#8C827A] bg-[#E8E2D9]/60 border border-[#D8D2C6] rounded">
+            <kbd className="absolute right-3 inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono text-[#8C827A] bg-[#E8E2D9]/60 border border-[#D8D2C6] rounded pointer-events-none">
               /
             </kbd>
           </div>
+
+          <button
+            onClick={() => setIsMobileSearchOpen(true)}
+            className="sm:hidden p-2 rounded-full hover:bg-[#F3EFEA] text-[#4A423A]"
+          >
+            <Search className="w-5 h-5" />
+          </button>
         </div>
 
-        {/* Right Actions & User Profile */}
-        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+        <AnimatePresence>
+          {isMobileSearchOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="absolute inset-0 bg-[#FAF7F2] px-4 flex items-center gap-3 z-50 border-b border-[#EADFCF]"
+            >
+              <Search className="w-4 h-4 text-[#8C827A] shrink-0" />
+              <input
+                ref={mobileInputRef}
+                type="text"
+                placeholder="Search stanzas..."
+                className="w-full text-sm bg-transparent text-[#2C2A29] focus:outline-none"
+              />
+              <button onClick={() => setIsMobileSearchOpen(false)} className="p-1 rounded-full text-[#8C827A]">
+                <X className="w-5 h-5" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <Link
             href="/share"
-            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#2C2A29] text-[#FAF8F5] text-xs font-serif hover:bg-[#3D3732] active:scale-95 transition-all"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#2C2A29] text-[#FAF8F5] text-xs font-serif hover:bg-[#3D3732] active:scale-95 transition-all shadow-sm"
           >
             <Sparkles className="w-3.5 h-3.5 text-[#D8D2C6]" />
             <span>New Verse</span>
@@ -281,7 +285,6 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
           <button
             onClick={() => setHasUnread(false)}
             className="relative p-2 rounded-full hover:bg-[#F3EFEA] text-[#4A423A]"
-            aria-label="Notifications"
           >
             <Bell className="w-4 h-4" />
             {hasUnread && (
@@ -292,7 +295,7 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
           <div className="relative">
             <button
               onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="h-8 w-8 rounded-full bg-[#E8E2D9] border border-[#D8D2C6] flex items-center justify-center font-serif text-xs text-[#2C2A29] active:scale-95 transition-transform"
+              className="h-8 w-8 rounded-full bg-[#E8E2D9] border border-[#D8D2C6] flex items-center justify-center font-serif text-xs text-[#2C2A29]"
             >
               ER
             </button>
@@ -330,7 +333,7 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
                     <div className="border-t border-[#E3D9CC]/60 my-1" />
                     <button
                       onClick={() => setIsProfileOpen(false)}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#8C3A32] hover:bg-[#F3EFEA] rounded-xl"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#8C3A32] hover:bg-[#F3EFEA] rounded-xl text-left"
                     >
                       <LogOut className="w-3.5 h-3.5" />
                       <span>Sign Out</span>
@@ -341,7 +344,7 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
             </AnimatePresence>
           </div>
         </div>
-      </motion.header>
+      </header>
     </>
   );
 }
