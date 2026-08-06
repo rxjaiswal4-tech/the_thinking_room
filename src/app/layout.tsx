@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { Lora, Inter } from 'next/font/google';
 import { Footer } from './components/Footer';
-import { Navigation } from "./components/Navigation";
 import './globals.css';
 
 const lora = Lora({ 
@@ -28,7 +27,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${lora.variable} ${inter.variable}`}>
-      <body className="bg-[#FAF7F2] text-[#2C2A29] font-sans antialiased selection:bg-[#E8E2D9] selection:text-[#1A1918] min-h-screen flex flex-col">
+      <body className="bg-[#FAF7F2] text-[#2C2A29] font-sans antialiased selection:bg-[#E8E2D9] selection:text-[#1A1918] min-h-screen flex flex-col relative overflow-x-hidden overflow-y-auto">
         
         {/* SVG Paper Texture Filter Overlay */}
         <div 
@@ -40,9 +39,8 @@ export default function RootLayout({
         />
 
         {/* Global Layout Shell */}
-        <div className="relative flex-1 flex flex-col min-h-screen">
+        <div className="flex-1 flex flex-col w-full min-h-screen">
           {children}
-          <Navigation />
           <Footer />
         </div>
 

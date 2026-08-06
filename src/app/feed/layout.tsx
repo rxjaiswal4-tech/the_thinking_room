@@ -4,17 +4,21 @@ import React, { useState } from "react";
 import { Navigation } from "../components/Navigation";
 
 export default function FeedLayout({ children }: { children: React.ReactNode }) {
-  // Default to true so it matches Navigation's initial collapsed state
+  // Default to true to match Navigation's initial collapsed state
   const [isCollapsed, setIsCollapsed] = useState(true);
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#2C2723] relative flex">
-      {/* Sidebar Navigation */}
+    <div className="min-h-screen bg-[#FAF7F2] text-[#2C2723] relative">
+      {/* Sidebar & Fixed Top Navigation */}
       <Navigation onCollapseChange={(collapsed) => setIsCollapsed(collapsed)} />
 
-      {/* Main Content Area */}
+      {/* 
+        Main Content Area 
+        - Dynamic left padding matches sidebar state (lg:pl-20 vs lg:pl-72)
+        - Block container prevents flex item collapsing on Vercel builds
+      */}
       <div
-        className={`flex-1 min-w-0 transition-all duration-300 ease-in-out ${
+        className={`w-full min-h-screen transition-all duration-300 ease-in-out ${
           isCollapsed ? "lg:pl-20" : "lg:pl-72"
         }`}
       >

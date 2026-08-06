@@ -20,21 +20,17 @@
   }
 }
 
+/* Clean, non-conflicting root scroll reset */
 html,
 body {
   background-color: var(--background) !important;
   color: var(--foreground);
   margin: 0;
   padding: 0;
-  overflow-x: hidden;
-  /* Prevents trackpad/mobile rubber-band scrolling from revealing dark background */
-  overscroll-behavior-y: none;
   min-height: 100vh;
 }
 
-/* Fix for Next.js root wrapper */
-#__next,
+/* Ensure Next.js root shell expands naturally */
 body > div:first-child {
-  background-color: var(--background) !important;
   min-height: 100vh;
 }
