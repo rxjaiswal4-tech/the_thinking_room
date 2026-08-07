@@ -79,7 +79,7 @@ export default function FeedPage() {
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 py-8 sm:px-10 flex flex-col gap-10">
+    <div className="w-full max-w-5xl mx-auto px-4 py-8 sm:px-8 flex flex-col gap-10">
       {/* Feed Header */}
       <header className="text-center space-y-2 py-2">
         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F2EFE9] border border-[#E5E0D8] text-[11px] font-mono tracking-widest uppercase text-[#8C827A]">
@@ -97,7 +97,7 @@ export default function FeedPage() {
       {/* Feed List */}
       <div className="flex flex-col gap-10">
         {loading ? (
-          <div className="w-full p-8 sm:p-12 rounded-3xl bg-[#FAFAFA] border border-[#EAE8E4] animate-pulse flex flex-col items-center gap-6">
+          <div className="p-8 sm:p-12 rounded-3xl bg-[#FAFAFA] border border-[#EAE8E4] animate-pulse flex flex-col items-center gap-6">
             <div className="h-4 w-28 bg-[#EAE5DC] rounded" />
             <div className="h-7 w-3/4 bg-[#EAE5DC] rounded" />
             <div className="w-full h-24 bg-[#F6F4EF] rounded-xl" />
@@ -110,7 +110,7 @@ export default function FeedPage() {
           stanzas.map((stanza) => (
             <article
               key={stanza.id}
-              className="w-full p-8 sm:p-12 rounded-3xl bg-[#FAFAFA] border border-[#EAE8E4] shadow-sm flex flex-col items-center text-center gap-6 hover:border-[#DCD7CE] transition-colors"
+              className="p-8 sm:p-12 rounded-3xl bg-[#FAFAFA] border border-[#EAE8E4] shadow-sm flex flex-col items-center text-center gap-6 hover:border-[#DCD7CE] transition-colors"
             >
               {/* Category */}
               <span className="text-xs sm:text-sm font-serif italic tracking-wide text-[#786F66]">
@@ -118,18 +118,18 @@ export default function FeedPage() {
               </span>
 
               {/* Title */}
-              <h2 className="font-serif text-2xl sm:text-3xl font-medium text-[#2C2723] w-full">
+              <h2 className="font-serif text-2xl sm:text-3xl font-medium text-[#2C2723] max-w-2xl">
                 {stanza.title}
               </h2>
 
               {/* Article Content */}
-              <div className="w-full my-2 py-4">
-                <p className="font-serif text-base sm:text-lg text-[#38332E] leading-relaxed whitespace-pre-line italic max-w-4xl mx-auto">
+              <div className="w-full max-w-3xl my-2 py-4">
+                <p className="font-serif text-base sm:text-lg text-[#38332E] leading-relaxed whitespace-pre-line italic">
                   {stanza.body}
                 </p>
               </div>
 
-              {/* Footer Details */}
+              {/* Restored Footer Layout */}
               <div className="w-full flex flex-col sm:flex-row items-center sm:items-end justify-between gap-4 pt-6 border-t border-[#F0ECE4] text-xs text-[#786F66] font-serif">
                 <div className="flex flex-col items-center sm:items-start gap-1 text-left">
                   <div className="flex items-center gap-1.5 text-[#2C2723] font-medium">
