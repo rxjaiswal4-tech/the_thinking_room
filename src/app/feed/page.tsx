@@ -1,7 +1,9 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import React, { useEffect, useState } from "react";
-import { Share2, Sparkles, Clock, Calendar, User } from "lucide-react";
+import { Share2, Sparkles, Clock, Calendar, User, RefreshCw } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
 // Initialize Supabase client
@@ -12,7 +14,7 @@ const supabase =
     ? createClient(supabaseUrl, supabaseAnonKey)
     : null;
 
-interface Stanza {
+interface Poem {
   id: string;
   title: string;
   body: string;
@@ -22,7 +24,7 @@ interface Stanza {
   updated_at?: string;
 }
 
-const fallbackStanzas: Stanza[] = [
+const fallbackPoems: Poem[] = [
   {
     id: "1",
     category: "Philosophy",
@@ -35,37 +37,41 @@ const fallbackStanzas: Stanza[] = [
 ];
 
 export default function FeedPage() {
-  const [stanzas, setStanzas] = useState<Stanza[]>([]);
+  const [poems, setPoems] = useState<Poem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function fetchStanzas() {
-      if (!supabase) {
-        setStanzas(fallbackStanzas);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from("stanzas")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (error || !data || data.length === 0) {
-          setStanzas(fallbackStanzas);
-        } else {
-          setStanzas(data as Stanza[]);
-        }
-      } catch (err) {
-        console.error("Error fetching stanzas:", err);
-        setStanzas(fallbackStanzas);
-      } finally {
-        setLoading(false);
-      }
+  const fetchPoems = async () => {
+    if (!supabase) {
+      setPoems(fallbackPoems);
+      setLoading(false);
+      return;
     }
 
-    fetchStanzas();
+    try {
+      // Changed table target from 'stanzas' to 'poems'
+      const { data, error } = await supabase
+        .from("poems")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Supabase Error:", error);
+        setPoems(fallbackPoems);
+      } else if (!data || data.length === 0) {
+        setPoems([]);
+      } else {
+        setPoems(data as Poem[]);
+      }
+    } catch (err) {
+      console.error("Error fetching poems:", err);
+      setPoems(fallbackPoems);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPoems();
   }, []);
 
   const formatDate = (dateString?: string) => {
@@ -106,45 +112,49 @@ export default function FeedPage() {
               <div className="h-3 w-1/4 bg-[#EAE5DC] rounded" />
             </div>
           </div>
+        ) : poems.length === 0 ? (
+          <div className="text-center p-12 rounded-3xl bg-[#FAFAFA] border border-[#EAE8E4] font-serif text-[#786F66]">
+            No poems published yet.
+          </div>
         ) : (
-          stanzas.map((stanza) => (
+          poems.map((poem) => (
             <article
-              key={stanza.id}
+              key={poem.id}
               className="p-8 sm:p-12 rounded-3xl bg-[#FAFAFA] border border-[#EAE8E4] shadow-sm flex flex-col items-center text-center gap-6 hover:border-[#DCD7CE] transition-colors"
             >
               {/* Category */}
               <span className="text-xs sm:text-sm font-serif italic tracking-wide text-[#786F66]">
-                {stanza.category || "General"}
+                {poem.category || "General"}
               </span>
 
               {/* Title */}
               <h2 className="font-serif text-2xl sm:text-3xl font-medium text-[#2C2723] max-w-2xl">
-                {stanza.title}
+                {poem.title}
               </h2>
 
               {/* Article Content */}
               <div className="w-full max-w-3xl my-2 py-4">
                 <p className="font-serif text-base sm:text-lg text-[#38332E] leading-relaxed whitespace-pre-line italic">
-                  {stanza.body}
+                  {poem.body}
                 </p>
               </div>
 
-              {/* Restored Footer Layout */}
+              {/* Footer Layout */}
               <div className="w-full flex flex-col sm:flex-row items-center sm:items-end justify-between gap-4 pt-6 border-t border-[#F0ECE4] text-xs text-[#786F66] font-serif">
                 <div className="flex flex-col items-center sm:items-start gap-1 text-left">
                   <div className="flex items-center gap-1.5 text-[#2C2723] font-medium">
                     <User className="w-3.5 h-3.5 text-[#8C827A]" />
-                    <span>Written By: {stanza.author || "Anonymous"}</span>
+                    <span>Written By: {poem.author || "Anonymous"}</span>
                   </div>
                   <div className="flex items-center gap-1.5 text-[#8C827A] text-[11px] font-mono">
                     <Calendar className="w-3 h-3" />
-                    <span>Written On: {formatDate(stanza.created_at)}</span>
+                    <span>Written On: {formatDate(poem.created_at)}</span>
                   </div>
-                  {stanza.updated_at && (
+                  {poem.updated_at && (
                     <div className="flex items-center gap-1.5 text-[#8C827A] text-[11px] font-mono">
                       <Clock className="w-3 h-3" />
                       <span>
-                        Last Updated: {formatDate(stanza.updated_at)}
+                        Last Updated: {formatDate(poem.updated_at)}
                       </span>
                     </div>
                   )}

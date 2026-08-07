@@ -2,125 +2,86 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
-  Feather,
-  BookOpen,
-  Info,
   Sparkles,
   ArrowRight,
   Clock,
+  Calendar,
   User,
-  Heart,
-  Bookmark,
   Share2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Navigation } from "./components/Navigation";
 
-interface ContentItem {
+interface Poem {
   id: string;
   title: string;
-  content: string;
+  body: string;
   author: string;
-  date: string;
-  type: "poetry" | "stories" | "information";
-  readTime?: string;
-  likes?: number;
+  category: string;
+  created_at: string;
+  updated_at?: string;
 }
 
 export default function LandingPage() {
   const [isCollapsed, setIsCollapsed] = useState(true);
-  const [activeTab, setActiveTab] = useState<"all" | "poetry" | "stories" | "information">("all");
-  const [trendingContent, setTrendingContent] = useState<ContentItem[]>([]);
+  const [poems, setPoems] = useState<Poem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchLandingContent() {
-      // Fetch dynamic poetry content from Supabase
-      const { data, error } = await supabase
-        .from("poems")
-        .select(`
-          id,
-          title,
-          stanza,
-          created_at,
-          likes,
-          authors ( name )
-        `)
-        .order("created_at", { ascending: false })
-        .limit(6);
-
-      let fetchedPoems: ContentItem[] = [];
-
-      if (!error && data) {
-        fetchedPoems = data.map((item: any) => ({
-          id: item.id,
-          title: item.title,
-          content: item.stanza,
-          author: item.authors?.name || "Anonymous Poet",
-          date: new Date(item.created_at).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          }),
-          type: "poetry",
-          readTime: "2 min read",
-          likes: item.likes || 0,
-        }));
+    async function fetchLatestLandingPoems() {
+      if (!supabase) {
+        setLoading(false);
+        return;
       }
 
-      // Sample fallback/supplemental curated stories and informative literary content
-      const supplementalContent: ContentItem[] = [
-        {
-          id: "story-1",
-          title: "The Clockmaker’s Last Reflection",
-          content:
-            "In the quiet alleyways of Prague, an aging craftsman carved minutes out of brass. He believed that time wasn't stolen by age, but given away in small, unremembered acts of love...",
-          author: "Julian Vance",
-          date: "Aug 4, 2026",
-          type: "stories",
-          readTime: "5 min read",
-          likes: 142,
-        },
-        {
-          id: "info-1",
-          title: "The Architecture of Modern Meter",
-          content:
-            "Free verse is not the absence of structure; it is the freedom to discover organic rhythm. Learn how modern poets blend cadence, lineation, and silence to craft resonant imagery...",
-          author: "Dr. Evelyn Wright",
-          date: "Aug 2, 2026",
-          type: "information",
-          readTime: "4 min read",
-          likes: 98,
-        },
-      ];
+      try {
+        // Fetch top 3 latest updated/created poems strictly in order
+        const { data, error } = await supabase
+          .from("poems")
+          .select("*")
+          .order("updated_at", { ascending: false, nullsFirst: false })
+          .order("created_at", { ascending: false })
+          .limit(3);
 
-      setTrendingContent([...fetchedPoems, ...supplementalContent]);
-      setLoading(false);
+        if (error) {
+          console.error("Error fetching landing poems:", error);
+        } else if (data) {
+          setPoems(data as Poem[]);
+        }
+      } catch (err) {
+        console.error("Fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
     }
 
-    fetchLandingContent();
+    fetchLatestLandingPoems();
   }, []);
 
-  const filteredItems =
-    activeTab === "all"
-      ? trendingContent
-      : trendingContent.filter((item) => item.type === activeTab);
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
 
   return (
     <div className="min-h-screen bg-[#FAF7F2] text-[#2C2A29] relative font-serif selection:bg-[#E8E2D9]">
-      
       {/* Sidebar & Top Header Navigation */}
       <Navigation onCollapseChange={(collapsed) => setIsCollapsed(collapsed)} />
 
-      {/* Main Page Container - Shifts padding dynamically when sidebar expands/collapses */}
+      {/* Main Page Container */}
       <div
         className={`w-full min-h-screen transition-all duration-300 ease-in-out ${
           isCollapsed ? "lg:pl-20" : "lg:pl-72"
         }`}
       >
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16 space-y-16 sm:space-y-24">
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 pt-24 pb-16 space-y-16">
           
           {/* ================= HERO SECTION ================= */}
           <section className="relative text-center max-w-3xl mx-auto space-y-6 pt-6">
@@ -141,7 +102,9 @@ export default function LandingPage() {
               className="text-4xl sm:text-6xl font-normal text-[#1F1E1D] tracking-tight leading-tight sm:leading-tight"
             >
               Where thoughts pause, <br />
-              <span className="italic font-light text-[#8C3A32]">and words resonate.</span>
+              <span className="italic font-light text-[#8C3A32]">
+                and words resonate.
+              </span>
             </motion.h1>
 
             <motion.p
@@ -150,8 +113,9 @@ export default function LandingPage() {
               transition={{ duration: 0.7, delay: 0.2 }}
               className="text-base sm:text-lg text-[#5A5654] leading-relaxed max-w-2xl mx-auto font-sans font-light"
             >
-              Welcome to a quiet digital atelier curated for poets, storytellers, and thinkers. 
-              Explore original verse, deep narrative prose, and insightful literary essays gathered in one unified hearth.
+              Welcome to a quiet digital atelier curated for poets, storytellers,
+              and thinkers. Explore original verse, deep narrative prose, and
+              insightful literary essays gathered in one unified hearth.
             </motion.p>
 
             <motion.div
@@ -176,133 +140,85 @@ export default function LandingPage() {
             </motion.div>
           </section>
 
-          {/* ================= TRENDING / FEATURED SECTION ================= */}
-          <section id="trending-section" className="space-y-8">
-            
-            {/* Section Header */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-[#E3D9CC] pb-4 gap-4">
+          {/* ================= LATEST WORKS (COMPACT CARDS) ================= */}
+          <section className="space-y-6">
+            <div className="flex items-center justify-between border-b border-[#E3D9CC] pb-4">
               <div>
-                <h2 className="text-2xl font-serif text-[#1F1E1D] font-normal">
-                  Latest & Trending Works
+                <h2 className="text-xl font-serif text-[#1F1E1D] font-medium">
+                  Latest Works
                 </h2>
                 <p className="text-xs font-sans text-[#7C7775]">
-                  Curated pieces across verse, story, and literature.
+                  The 3 most recently updated pieces.
                 </p>
               </div>
 
-              {/* TAB CONTROLS: Poetry | Stories | Information */}
-              <div className="flex items-center gap-1 sm:gap-2 p-1 rounded-full bg-[#F3EFEA] border border-[#E3D9CC]">
-                {[
-                  { id: "all", label: "All Works" },
-                  { id: "poetry", label: "Poetry", icon: Feather },
-                  { id: "stories", label: "Stories", icon: BookOpen },
-                  { id: "information", label: "Information", icon: Info },
-                ].map((tab) => {
-                  const Icon = tab.icon;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id as any)}
-                      className={`flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-full text-xs font-sans transition-all ${
-                        activeTab === tab.id
-                          ? "bg-[#2C2A29] text-[#FAF8F5] shadow-sm"
-                          : "text-[#665E56] hover:text-[#2C2A29]"
-                      }`}
-                    >
-                      {Icon && <Icon className="w-3 h-3" />}
-                      <span>{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              <Link
+                href="/feed"
+                className="text-xs font-serif text-[#8C3A32] hover:underline flex items-center gap-1"
+              >
+                View all feed <ArrowRight className="w-3 h-3" />
+              </Link>
             </div>
 
-            {/* Content Grid */}
+            {/* Small Cards Grid */}
             {loading ? (
-              <div className="text-center py-20 font-serif text-[#7C7775] italic">
-                Gathering latest literary works...
+              <div className="grid md:grid-cols-3 gap-6">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="p-6 rounded-2xl bg-[#FAFAFA] border border-[#EAE8E4] animate-pulse h-48 flex flex-col justify-between"
+                  >
+                    <div className="h-4 w-1/3 bg-[#EAE5DC] rounded" />
+                    <div className="h-6 w-3/4 bg-[#EAE5DC] rounded" />
+                    <div className="h-10 w-full bg-[#F6F4EF] rounded" />
+                  </div>
+                ))}
               </div>
-            ) : filteredItems.length === 0 ? (
-              <div className="text-center py-20 font-serif text-[#7C7775] italic">
-                No entries found under this section yet.
+            ) : poems.length === 0 ? (
+              <div className="text-center p-8 rounded-2xl bg-[#FAFAFA] border border-[#EAE8E4] font-serif text-xs text-[#786F66]">
+                No poems published yet.
               </div>
             ) : (
-              <motion.div
-                layout
-                className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8"
-              >
-                <AnimatePresence>
-                  {filteredItems.map((item) => (
-                    <motion.article
-                      layout
-                      initial={{ opacity: 0, scale: 0.98 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.98 }}
-                      transition={{ duration: 0.4 }}
-                      key={item.id}
-                      className="group bg-[#FAF8F5] border border-[#E3D9CC] rounded-3xl p-6 sm:p-7 shadow-[0_4px_20px_rgba(44,42,41,0.02)] hover:shadow-[0_8px_30px_rgba(44,42,41,0.06)] hover:border-[#D5C9B8] transition-all flex flex-col justify-between"
-                    >
-                      {/* TOP: Title & Badge */}
-                      <div>
-                        <div className="flex items-center justify-between gap-2 mb-4">
-                          <span className="px-2.5 py-0.5 rounded-full bg-[#F3EFEA] border border-[#E3D9CC] text-[9px] font-mono uppercase tracking-widest text-[#7C7775]">
-                            {item.type}
-                          </span>
-                          {item.readTime && (
-                            <span className="text-[10px] font-sans text-[#8C827A]">
-                              {item.readTime}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* TITLE AT TOP */}
-                        <h3 className="font-serif text-xl text-[#1F1E1D] font-normal tracking-tight mb-4 group-hover:text-[#8C3A32] transition-colors">
-                          {item.title}
-                        </h3>
-
-                        {/* MAIN CONTENT / EXCERPT */}
-                        <p className="font-serif text-sm leading-relaxed text-[#4A423A] italic whitespace-pre-line mb-8 border-l-2 border-[#E8E2D9] pl-3">
-                          {item.content}
-                        </p>
+              <div className="grid md:grid-cols-3 gap-6">
+                {poems.map((poem) => (
+                  <article
+                    key={poem.id}
+                    className="p-6 rounded-2xl bg-[#FAFAFA] border border-[#EAE8E4] shadow-sm flex flex-col justify-between gap-4 hover:border-[#DCD7CE] hover:shadow-md transition-all group"
+                  >
+                    {/* Header: Category & Title */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-[11px] font-serif text-[#786F66]">
+                        <span className="italic">{poem.category || "General"}</span>
+                        <button className="text-[#8C827A] hover:text-[#2C2723] transition-colors">
+                          <Share2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
 
-                      {/* BOTTOM: Writer Name & Uploaded Date */}
-                      <div className="pt-4 border-t border-[#E3D9CC]/70 space-y-3">
-                        {/* WRITER NAME AT BOTTOM */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-[#E8E2D9] flex items-center justify-center text-[#2C2A29]">
-                              <User className="w-3.5 h-3.5" />
-                            </div>
-                            <span className="font-serif text-xs font-semibold text-[#2C2A29]">
-                              {item.author}
-                            </span>
-                          </div>
+                      <h3 className="font-serif text-lg font-medium text-[#2C2723] line-clamp-2 group-hover:text-[#8C3A32] transition-colors">
+                        {poem.title}
+                      </h3>
+                    </div>
 
-                          {/* Action Icons */}
-                          <div className="flex items-center gap-2 text-[#7C7775]">
-                            <button title="Like" className="hover:text-[#8C3A32] transition-colors p-1">
-                              <Heart className="w-3.5 h-3.5" />
-                            </button>
-                            <button title="Bookmark" className="hover:text-[#2C2A29] transition-colors p-1">
-                              <Bookmark className="w-3.5 h-3.5" />
-                            </button>
-                            <button title="Share" className="hover:text-[#2C2A29] transition-colors p-1">
-                              <Share2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
+                    {/* Excerpt Body (Truncated to 3 lines) */}
+                    <p className="font-serif text-xs text-[#5A5654] leading-relaxed italic line-clamp-3">
+                      "{poem.body}"
+                    </p>
 
-                        {/* UPLOADED DATE AT VERY BOTTOM */}
-                        <div className="flex items-center gap-1.5 text-[10px] font-mono text-[#8C827A]">
-                          <Clock className="w-3 h-3" />
-                          <span>Uploaded on {item.date}</span>
-                        </div>
+                    {/* Footer Meta */}
+                    <div className="pt-3 border-t border-[#F0ECE4] text-[11px] text-[#786F66] font-serif flex flex-col gap-1">
+                      <div className="flex items-center gap-1.5 text-[#2C2723] font-medium">
+                        <User className="w-3 h-3 text-[#8C827A]" />
+                        <span className="truncate">{poem.author || "Anonymous"}</span>
                       </div>
-                    </motion.article>
-                  ))}
-                </AnimatePresence>
-              </motion.div>
+
+                      <div className="flex items-center gap-1.5 text-[#8C827A] font-mono text-[10px]">
+                        <Calendar className="w-3 h-3" />
+                        <span>{formatDate(poem.updated_at || poem.created_at)}</span>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
             )}
           </section>
 

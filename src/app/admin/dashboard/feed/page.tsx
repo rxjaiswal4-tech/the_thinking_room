@@ -2,36 +2,53 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Feather, Plus, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
+import { Feather, Plus, CheckCircle2, AlertCircle, RefreshCw, Trash2, BookOpen } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+
+interface Poem {
+  id: string;
+  title: string;
+  body: string;
+  author: string;
+  category: string;
+  created_at: string;
+}
 
 export default function AdminFeedPage() {
   const router = useRouter();
 
   const [authorName, setAuthorName] = useState("");
-  const [authorHandle, setAuthorHandle] = useState("");
   const [title, setTitle] = useState("");
-  const [stanza, setStanza] = useState("");
-  const [category, setCategory] = useState("Reflections");
-  const [readTime, setReadTime] = useState("2 min read");
-  const [hasAudio, setHasAudio] = useState(false);
+  const [body, setBody] = useState("");
+  const [category, setCategory] = useState("Philosophy");
 
+  const [poems, setPoems] = useState<Poem[]>([]);
+  const [fetchingPoems, setFetchingPoems] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  const generateAvatar = (name: string) => {
-    return (
-      name
-        .trim()
-        .split(" ")
-        .filter(Boolean)
-        .map((part) => part[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2) || "A"
-    );
+  useEffect(() => {
+    fetchPoems();
+  }, []);
+
+  const fetchPoems = async () => {
+    setFetchingPoems(true);
+    try {
+      const { data, error } = await supabase
+        .from("poems")
+        .select("id, title, body, author, category, created_at")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setPoems(data || []);
+    } catch (err: any) {
+      console.error("Error fetching poems:", err);
+    } finally {
+      setFetchingPoems(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -40,60 +57,26 @@ export default function AdminFeedPage() {
     setStatus(null);
 
     try {
-      const cleanHandle = authorHandle.trim().startsWith("@")
-        ? authorHandle.trim()
-        : `@${authorHandle.trim()}`;
-
-      let authorId: string | null = null;
-      const { data: existingAuthor, error: fetchAuthorError } = await supabase
-        .from("authors")
-        .select("id")
-        .eq("handle", cleanHandle)
-        .maybeSingle();
-
-      if (fetchAuthorError) throw fetchAuthorError;
-
-      if (existingAuthor) {
-        authorId = existingAuthor.id;
-      } else {
-        const { data: newAuthor, error: createAuthorError } = await supabase
-          .from("authors")
-          .insert([
-            {
-              name: authorName.trim(),
-              handle: cleanHandle,
-              avatar: generateAvatar(authorName),
-            },
-          ])
-          .select("id")
-          .single();
-
-        if (createAuthorError) throw createAuthorError;
-        authorId = newAuthor.id;
-      }
-
-      const { error: poemError } = await supabase.from("poems").insert([
+      const { error } = await supabase.from("poems").insert([
         {
           title: title.trim(),
-          stanza: stanza.trim(),
-          category,
-          read_time: readTime.trim() || "2 min read",
-          has_audio: hasAudio,
-          author_id: authorId,
-          likes: 0,
-          comments: 0,
+          body: body.trim(),
+          author: authorName.trim() || "Anonymous",
+          category: category || "General",
         },
       ]);
 
-      if (poemError) throw poemError;
+      if (error) throw error;
 
       setTitle("");
-      setStanza("");
+      setBody("");
+      setAuthorName("");
       setStatus({
         type: "success",
         message: "Poetic work successfully published to the anthology feed!",
       });
 
+      fetchPoems();
       router.refresh();
     } catch (err: any) {
       console.error("Admin submit error:", err);
@@ -106,9 +89,49 @@ export default function AdminFeedPage() {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this poem from the live feed?")) return;
+
+    setDeletingId(id);
+    setStatus(null);
+
+    try {
+      const { error } = await supabase.from("poems").delete().eq("id", id);
+
+      if (error) throw error;
+
+      setStatus({
+        type: "success",
+        message: "Poem removed successfully.",
+      });
+
+      setPoems((prev) => prev.filter((poem) => poem.id !== id));
+      router.refresh();
+    } catch (err: any) {
+      console.error("Admin delete error:", err);
+      setStatus({
+        type: "error",
+        message: err.message || "Failed to delete item.",
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
   return (
     <div className="min-h-screen bg-[#FAF7F2] text-[#2C2A29] py-10 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="max-w-4xl mx-auto space-y-8">
+        {/* Header */}
         <div className="flex items-center justify-between border-b border-[#E3D9CC] pb-6">
           <div>
             <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-[#7C7775] mb-1">
@@ -116,7 +139,7 @@ export default function AdminFeedPage() {
               <span>Editorial Curation Control</span>
             </div>
             <h1 className="font-serif text-2xl sm:text-3xl font-normal text-[#1F1E1D]">
-              Publish Mail Submissions
+              Manage Feed Submissions
             </h1>
           </div>
           <button
@@ -127,6 +150,7 @@ export default function AdminFeedPage() {
           </button>
         </div>
 
+        {/* Status Notification */}
         {status && (
           <div
             className={`p-4 rounded-2xl border flex items-center gap-3 text-xs font-serif ${
@@ -144,13 +168,14 @@ export default function AdminFeedPage() {
           </div>
         )}
 
+        {/* Add Post Form */}
         <form
           onSubmit={handleSubmit}
           className="bg-[#FAF8F5] border border-[#E3D9CC] rounded-3xl p-6 sm:p-10 shadow-[0_4px_20px_rgba(44,42,41,0.02)] space-y-6"
         >
           <div className="space-y-4">
             <h2 className="font-serif text-sm font-medium border-b border-[#E3D9CC]/60 pb-2 text-[#4A423A]">
-              1. Contributor Details (From Email)
+              Publish New Poem / Entry
             </h2>
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
@@ -160,45 +185,9 @@ export default function AdminFeedPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Elena Rostova"
+                  placeholder="e.g. John Doe"
                   value={authorName}
                   onChange={(e) => setAuthorName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs focus:outline-none focus:border-[#2C2A29] transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-serif text-[#5A5654] mb-1">
-                  Author Handle *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. @elena_rostova"
-                  value={authorHandle}
-                  onChange={(e) => setAuthorHandle(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs focus:outline-none focus:border-[#2C2A29] transition-colors"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-4 pt-2">
-            <h2 className="font-serif text-sm font-medium border-b border-[#E3D9CC]/60 pb-2 text-[#4A423A]">
-              2. Content & Stanzas
-            </h2>
-
-            <div className="grid sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-serif text-[#5A5654] mb-1">
-                  Title of Piece *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Solitude in Quiet Light"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs focus:outline-none focus:border-[#2C2A29] transition-colors"
                 />
               </div>
@@ -212,6 +201,7 @@ export default function AdminFeedPage() {
                   onChange={(e) => setCategory(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs focus:outline-none focus:border-[#2C2A29] transition-colors"
                 >
+                  <option value="Philosophy">Philosophy</option>
                   <option value="Reflections">Reflections</option>
                   <option value="Free Verse">Free Verse</option>
                   <option value="Sonnets">Sonnets</option>
@@ -225,48 +215,34 @@ export default function AdminFeedPage() {
 
             <div>
               <label className="block text-xs font-serif text-[#5A5654] mb-1">
-                Poem / Story Body *
+                Title of Piece *
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. The Importance of Critical Thinking"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs focus:outline-none focus:border-[#2C2A29] transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-serif text-[#5A5654] mb-1">
+                Poem Body *
               </label>
               <textarea
                 required
-                rows={8}
-                placeholder="Paste the verses or story text submitted from the email here..."
-                value={stanza}
-                onChange={(e) => setStanza(e.target.value)}
+                rows={6}
+                placeholder="Paste the verses or text content here..."
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
                 className="w-full p-4 rounded-2xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs font-serif focus:outline-none focus:border-[#2C2A29] leading-relaxed transition-colors whitespace-pre-line"
               />
             </div>
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-4 items-center pt-2 border-t border-[#E3D9CC]/60">
-            <div>
-              <label className="block text-xs font-serif text-[#5A5654] mb-1">
-                Estimated Read Time
-              </label>
-              <input
-                type="text"
-                placeholder="2 min read"
-                value={readTime}
-                onChange={(e) => setReadTime(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs focus:outline-none focus:border-[#2C2A29] transition-colors"
-              />
-            </div>
-
-            <div className="flex items-center gap-3 pt-4 sm:pt-0">
-              <input
-                type="checkbox"
-                id="hasAudio"
-                checked={hasAudio}
-                onChange={(e) => setHasAudio(e.target.checked)}
-                className="w-4 h-4 rounded border-[#E3D9CC] text-[#2C2A29] focus:ring-0 cursor-pointer"
-              />
-              <label htmlFor="hasAudio" className="text-xs font-serif text-[#4A423A] cursor-pointer">
-                Include Spoken Recitation Audio Indicator
-              </label>
-            </div>
-          </div>
-
-          <div className="pt-4">
+          <div>
             <button
               type="submit"
               disabled={loading}
@@ -286,6 +262,71 @@ export default function AdminFeedPage() {
             </button>
           </div>
         </form>
+
+        {/* Existing Feed List / Delete Manager */}
+        <div className="space-y-4 pt-4">
+          <div className="flex items-center justify-between border-b border-[#E3D9CC] pb-2">
+            <h2 className="font-serif text-lg font-normal text-[#1F1E1D] flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-[#8C827A]" />
+              <span>Published Posts ({poems.length})</span>
+            </h2>
+            <button
+              onClick={fetchPoems}
+              className="text-xs font-mono text-[#7C7775] hover:text-[#2C2A29] flex items-center gap-1"
+            >
+              <RefreshCw className={`w-3 h-3 ${fetchingPoems ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
+          </div>
+
+          {fetchingPoems ? (
+            <div className="p-6 text-center text-xs font-serif text-[#8C827A]">
+              Loading entries...
+            </div>
+          ) : poems.length === 0 ? (
+            <div className="p-8 text-center text-xs font-serif text-[#8C827A] bg-[#FAF8F5] rounded-2xl border border-[#E3D9CC]">
+              No posts published yet.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {poems.map((poem) => (
+                <div
+                  key={poem.id}
+                  className="p-4 sm:p-5 rounded-2xl bg-[#FAF8F5] border border-[#E3D9CC] flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:border-[#DCD7CE]"
+                >
+                  <div className="space-y-1 max-w-2xl">
+                    <div className="flex items-center gap-2 text-[11px] text-[#786F66] font-serif">
+                      <span className="font-medium text-[#2C2723]">{poem.category}</span>
+                      <span>•</span>
+                      <span>By {poem.author}</span>
+                      <span>•</span>
+                      <span>{formatDate(poem.created_at)}</span>
+                    </div>
+                    <h3 className="font-serif text-base font-medium text-[#2C2723]">
+                      {poem.title}
+                    </h3>
+                    <p className="text-xs text-[#786F66] font-serif line-clamp-2 italic">
+                      {poem.body}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => handleDelete(poem.id)}
+                    disabled={deletingId === poem.id}
+                    className="self-end sm:self-center px-3 py-1.5 rounded-lg bg-[#FBE8E8] text-[#7A2E2E] hover:bg-[#F7D4D4] transition-colors text-xs font-serif flex items-center gap-1.5 shrink-0 disabled:opacity-50"
+                  >
+                    {deletingId === poem.id ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-3.5 h-3.5" />
+                    )}
+                    <span>Delete</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
