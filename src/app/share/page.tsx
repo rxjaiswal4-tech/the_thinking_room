@@ -60,7 +60,7 @@ export default function SharePoemPage() {
             value="New Poetry / Thought Submission for Stanza Feed"
           />
           <input type="hidden" name="_captcha" value="false" />
-          <input type="hidden" name="_next" value="http://localhost:3000/" />
+          <input type="hidden" name="_next" value="https://the-thinking-room-sage.vercel.app/" />
 
           {/* Author / Contributor Info */}
           <div className="grid sm:grid-cols-2 gap-4">
