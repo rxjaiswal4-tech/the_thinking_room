@@ -99,7 +99,7 @@ export default function LandingPage() {
     initial={{ opacity: 0, y: 16 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.7, delay: 0.1 }}
-    className="text-2xl sm:text-6xl font-normal text-[#1F1E1D] tracking-tight leading-tight sm:leading-tight"
+    className="text-3xl sm:text-6xl font-normal text-[#1F1E1D] tracking-tight leading-tight sm:leading-tight"
   >
     Where thoughts pause, <br />
     <span className="italic font-light text-[#8C3A32]">
