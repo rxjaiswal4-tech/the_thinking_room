@@ -31,10 +31,10 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: "Poetic Stream", sublabel: "The daily feed", href: "/feed", icon: Rss },
   { label: "Thinking Room", sublabel: "Sanctuary of thought", href: "/", icon: Compass },
+  { label: "Poetic Stream", sublabel: "The daily feed", href: "/feed", icon: Rss },
   { label: "Categories", sublabel: "Anthologies & themes", href: "/categories", icon: BookOpen },
-  { label: "Saved Stanzas", sublabel: "Your quiet collection", href: "/saved", icon: Bookmark },
+  //{ label: "Saved Stanzas", sublabel: "Your quiet collection", href: "/saved", icon: Bookmark },
 ];
 
 interface NavigationProps {

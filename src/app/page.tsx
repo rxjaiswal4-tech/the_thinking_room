@@ -91,7 +91,7 @@ export default function LandingPage() {
               transition={{ duration: 0.6 }}
               className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#F3EFEA] border border-[#E3D9CC] text-xs font-mono uppercase tracking-widest text-[#7C7775]"
             >
-              <Sparkles className="w-3.5 h-3.5 text-[#8C3A32]" />
+              <Sparkles className="w-3 h-3 text-[#8C3A32]" />
               <span>A Sanctuary for the Written Word</span>
             </motion.div>
 
@@ -99,7 +99,7 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.1 }}
-              className="text-4xl sm:text-6xl font-normal text-[#1F1E1D] tracking-tight leading-tight sm:leading-tight"
+              className="text-3xl sm:text-5xl font-normal text-[#1F1E1D] tracking-tight leading-tight sm:leading-tight"
             >
               Where thoughts pause, <br />
               <span className="italic font-light text-[#8C3A32]">
