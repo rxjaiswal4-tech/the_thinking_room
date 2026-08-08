@@ -30,7 +30,7 @@ export default function FeedLayout({
           - max-w-7xl = 1280px
           - max-w-[1400px] = custom wider width
         */}
-        <main className="w-full max-w-[1400px] mx-auto px-6 sm:px-8 lg:px-10 pt-24 pb-16">
+        <main className="w-full max-w-[1400px] mx-auto px-6 sm:px-8 lg:px-10 pt-12 pb-16">
           {children}
         </main>
       </div>

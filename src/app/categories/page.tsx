@@ -81,7 +81,7 @@ export default function CategoriesPage() {
           isCollapsed ? "lg:pl-20" : "lg:pl-72"
         }`}
       >
-        <div className="max-w-5xl mx-auto px-4 sm:px-8 pt-24 pb-16 space-y-12">
+        <div className="max-w-5xl mx-auto px-4 sm:px-8 pt-12 pb-13 space-y-12">
           
           {/* Categories Selector Component */}
           <section className="bg-[#FAF7F2]">
