@@ -1,8 +1,6 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import CategoriesMenu from "../components/CategoriesMenu";
 import { Navigation } from "../components/Navigation";
@@ -41,7 +39,6 @@ export default function CategoriesPage() {
           .order("created_at", { ascending: false });
 
         if (selectedCategory) {
-          // Case-insensitive filtering for selected category
           query = query.ilike("category", selectedCategory);
         }
 
@@ -74,25 +71,25 @@ export default function CategoriesPage() {
 
   return (
     <div className="min-h-screen bg-[#FAF7F2] text-[#2C2A29] relative font-serif selection:bg-[#E8E2D9]">
-      {/* Sidebar & Top Header Navigation */}
-      <Navigation onCollapseChange={(collapsed) => setIsCollapsed(collapsed)} />
+      <Suspense fallback={<div className="h-16 bg-[#FAF7F2]" />}>
+        <Navigation onCollapseChange={(collapsed) => setIsCollapsed(collapsed)} />
+      </Suspense>
 
-      {/* Main Page Container */}
       <main
         className={`w-full min-h-screen transition-all duration-300 ease-in-out ${
           isCollapsed ? "lg:pl-20" : "lg:pl-72"
         }`}
       >
         <div className="max-w-5xl mx-auto px-4 sm:px-8 pt-12 pb-13 space-y-12">
-          {/* Categories Selector Component */}
           <section className="bg-[#FAF7F2]">
-            <CategoriesMenu
-              selectedCategory={selectedCategory}
-              onSelectCategory={(category) => setSelectedCategory(category)}
-            />
+            <Suspense fallback={<div className="h-12 bg-[#EAE5DC] rounded animate-pulse" />}>
+              <CategoriesMenu
+                selectedCategory={selectedCategory}
+                onSelectCategory={(category) => setSelectedCategory(category)}
+              />
+            </Suspense>
           </section>
 
-          {/* Results Section */}
           <section className="space-y-6 pt-4">
             <div className="flex items-center justify-between border-b border-[#E3D9CC] pb-4">
               <h2 className="text-2xl font-serif text-[#1F1E1D] font-normal">
@@ -103,7 +100,6 @@ export default function CategoriesPage() {
               </span>
             </div>
 
-            {/* Poems List */}
             {loading ? (
               <div className="space-y-6">
                 {[1, 2].map((i) => (
@@ -129,24 +125,20 @@ export default function CategoriesPage() {
                     key={poem.id}
                     className="p-8 sm:p-12 rounded-3xl bg-[#FAFAFA] border border-[#EAE8E4] shadow-sm flex flex-col items-center text-center gap-6 hover:border-[#DCD7CE] transition-colors"
                   >
-                    {/* Category Tag */}
                     <span className="text-xs sm:text-sm font-serif italic tracking-wide text-[#786F66]">
                       {poem.category || "General"}
                     </span>
 
-                    {/* Title */}
                     <h2 className="font-serif text-2xl sm:text-3xl font-medium text-[#2C2723] max-w-2xl">
                       {poem.title}
                     </h2>
 
-                    {/* Content */}
                     <div className="w-full max-w-3xl my-2 py-4">
                       <p className="font-serif text-base sm:text-lg text-[#38332E] leading-relaxed whitespace-pre-line italic">
                         {poem.body}
                       </p>
                     </div>
 
-                    {/* Footer Info */}
                     <div className="w-full flex flex-col sm:flex-row items-center sm:items-end justify-between gap-4 pt-6 border-t border-[#F0ECE4] text-xs text-[#786F66] font-serif">
                       <div className="flex flex-col items-center sm:items-start gap-1 text-left">
                         <div className="flex items-center gap-1.5 text-[#2C2723] font-medium">
