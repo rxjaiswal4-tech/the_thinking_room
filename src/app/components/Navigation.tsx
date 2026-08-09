@@ -14,10 +14,9 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Crown,
   Rss,
 } from "lucide-react";
-import { SearchBar } from "../components/SearchBar"; // Imported here
+import { SearchBar } from "../components/SearchBar";
 
 interface NavItem {
   label: string;
@@ -41,7 +40,7 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
 
-  // Safely sync collapse state to parent layout
+  // Sync collapse state to parent layout
   useEffect(() => {
     onCollapseChange?.(isCollapsed);
   }, [isCollapsed, onCollapseChange]);
@@ -76,7 +75,7 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         } ${isCollapsed ? "lg:w-20" : "lg:w-72"} w-72`}
       >
-        {/* Toggle Collapse Button */}
+        {/* Toggle Collapse Button (Desktop Only) */}
         <button
           onClick={toggleCollapse}
           className="hidden lg:flex absolute -right-3.5 top-8 z-50 p-1.5 rounded-full bg-[#FAFAFA] border border-[#EAE8E4] text-[#665E56] hover:text-[#2C2723] hover:bg-[#F3F1ED] shadow-sm active:scale-95 transition-transform focus:outline-none"
@@ -96,16 +95,14 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
               <div className="p-2.5 rounded-2xl bg-[#F3F0EA] border border-[#E8E4DC] text-[#4A423A] shrink-0 group-hover:bg-[#EAE5DC] transition-colors">
                 <Feather className="w-5 h-5 stroke-[1.5]" />
               </div>
-              {!isCollapsed && (
-                <div className="flex flex-col text-left overflow-hidden whitespace-nowrap transition-opacity duration-200">
-                  <span className="font-serif text-xl tracking-tight text-[#2C2723] font-medium italic">
-                    Verse & Muse
-                  </span>
-                  <span className="text-[10px] font-mono tracking-widest uppercase text-[#8C827A]">
-                    Anthology No. 01
-                  </span>
-                </div>
-              )}
+              <div className={`flex flex-col text-left overflow-hidden whitespace-nowrap transition-opacity duration-200 ${isCollapsed ? "lg:hidden" : "block"}`}>
+                <span className="font-serif text-xl tracking-tight text-[#2C2723] font-medium italic">
+                  Verse & Muse
+                </span>
+                <span className="text-[10px] font-mono tracking-widest uppercase text-[#8C827A]">
+                  Anthology No. 01
+                </span>
+              </div>
             </Link>
           </div>
 
@@ -114,28 +111,25 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
             <Link
               href="/share"
               className={`w-full flex items-center p-3.5 rounded-2xl bg-[#2C2723] hover:bg-[#3D3732] text-[#FAF8F5] shadow-md border border-[#3D3732] transition-all ${
-                isCollapsed ? "lg:justify-center" : "justify-between"
+                isCollapsed ? "lg:justify-center justify-between" : "justify-between"
               }`}
             >
               <div className="flex items-center gap-3">
                 <PenTool className="w-4 h-4 text-[#D8D2C6] shrink-0" />
-                {!isCollapsed && (
-                  <span className="font-serif text-sm whitespace-nowrap">
-                    Share Your Thoughts
-                  </span>
-                )}
+                <span className={`font-serif text-sm whitespace-nowrap ${isCollapsed ? "lg:hidden" : "block"}`}>
+                  Share Your Thoughts
+                </span>
               </div>
-              {!isCollapsed && <Sparkles className="w-3.5 h-3.5 text-[#C4BBAF] shrink-0" />}
+              <Sparkles className={`w-3.5 h-3.5 text-[#C4BBAF] shrink-0 ${isCollapsed ? "lg:hidden" : "block"}`} />
             </Link>
           </div>
 
           {/* Nav Items */}
           <nav className="flex flex-col gap-1.5" aria-label="Main Navigation">
-            {!isCollapsed && (
-              <p className="px-3 text-[11px] font-mono tracking-widest uppercase text-[#9C928A] mb-1">
-                Navigation
-              </p>
-            )}
+            <p className={`px-3 text-[11px] font-mono tracking-widest uppercase text-[#9C928A] mb-1 ${isCollapsed ? "lg:hidden" : "block"}`}>
+              Navigation
+            </p>
+
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
               const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
@@ -145,7 +139,7 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
                   key={item.href}
                   href={item.href}
                   className={`group relative flex items-center gap-3.5 p-3 rounded-xl transition-colors ${
-                    isCollapsed ? "lg:justify-center" : "px-3.5"
+                    isCollapsed ? "lg:justify-center px-3.5" : "px-3.5"
                   } ${
                     isActive
                       ? "bg-[#F2EFE9] text-[#2C2723] font-medium border border-[#E5E0D8]"
@@ -153,14 +147,12 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
                   }`}
                 >
                   <Icon className="w-4 h-4 shrink-0" />
-                  {!isCollapsed && (
-                    <div className="flex flex-col overflow-hidden whitespace-nowrap">
-                      <span className="font-serif text-sm leading-none">{item.label}</span>
-                      {item.sublabel && (
-                        <span className="text-[10px] text-[#9C928A] mt-1">{item.sublabel}</span>
-                      )}
-                    </div>
-                  )}
+                  <div className={`flex flex-col overflow-hidden whitespace-nowrap ${isCollapsed ? "lg:hidden" : "block"}`}>
+                    <span className="font-serif text-sm leading-none">{item.label}</span>
+                    {item.sublabel && (
+                      <span className="text-[10px] text-[#9C928A] mt-1">{item.sublabel}</span>
+                    )}
+                  </div>
                 </Link>
               );
             })}
@@ -168,16 +160,14 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
         </div>
 
         {/* Footer Poe Quote */}
-        {!isCollapsed && (
-          <div className="p-4 rounded-2xl bg-[#F5F2EB]/60 border border-[#EAE5DC]">
-            <p className="font-serif text-xs italic text-[#5C544C]">
-              &ldquo;Poetry is the rhythmical creation of beauty in words.&rdquo;
-            </p>
-            <span className="block mt-2 text-[10px] font-mono uppercase text-[#A3988E]">
-              — Edgar Allan Poe
-            </span>
-          </div>
-        )}
+        <div className={`p-4 rounded-2xl bg-[#F5F2EB]/60 border border-[#EAE5DC] ${isCollapsed ? "lg:hidden" : "block"}`}>
+          <p className="font-serif text-xs italic text-[#5C544C]">
+            &ldquo;Poetry is the rhythmical creation of beauty in words.&rdquo;
+          </p>
+          <span className="block mt-2 text-[10px] font-mono uppercase text-[#A3988E]">
+            — Edgar Allan Poe
+          </span>
+        </div>
       </aside>
 
       {/* Header Bar */}
@@ -195,7 +185,6 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
             {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
 
-          {/* Clean Sub-component Placement */}
           <SearchBar className="flex-1" />
         </div>
 
@@ -207,14 +196,6 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
             <Sparkles className="w-3.5 h-3.5 text-[#D8D2C6]" />
             <span>New Verse</span>
           </Link>
-
-         {/* <Link
-            href="/premium"
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/30 text-[#8A711C] hover:bg-[#D4AF37]/25 text-xs font-serif transition-colors shadow-sm"
-          >
-            <Crown className="w-3.5 h-3.5 text-[#B8860B]" />
-            <span className="font-medium">Premium</span>
-          </Link> */}
         </div>
       </header>
     </>
