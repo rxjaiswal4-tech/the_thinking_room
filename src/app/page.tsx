@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -24,7 +24,7 @@ interface Poem {
   updated_at?: string;
 }
 
-export default function LandingPage() {
+function LandingContent() {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [poems, setPoems] = useState<Poem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,61 +84,61 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-8 pt-14 pb-16 space-y-16">
           
           {/* ================= HERO SECTION ================= */}
-<section className="relative text-center max-w-3xl mx-auto space-y-5 pt-6">
-  <motion.div
-    initial={{ opacity: 0, y: -10 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.6 }}
-    className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#F3EFEA] border border-[#E3D9CC] text-xs font-mono uppercase tracking-widest text-[#7C7775]"
-  >
-    <Sparkles className="w-3 h-3 text-[#8C3A32]" />
-    <span>A Sanctuary for the Written Word</span>
-  </motion.div>
+          <section className="relative text-center max-w-3xl mx-auto space-y-5 pt-6">
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#F3EFEA] border border-[#E3D9CC] text-xs font-mono uppercase tracking-widest text-[#7C7775]"
+            >
+              <Sparkles className="w-3 h-3 text-[#8C3A32]" />
+              <span>A Sanctuary for the Written Word</span>
+            </motion.div>
 
-  <motion.h1
-    initial={{ opacity: 0, y: 16 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.7, delay: 0.1 }}
-    className="text-3xl sm:text-6xl font-normal text-[#1F1E1D] tracking-tight leading-tight sm:leading-tight"
-  >
-    Where thoughts pause, <br />
-    <span className="italic font-light text-[#8C3A32]">
-      and words resonate.
-    </span>
-  </motion.h1>
+            <motion.h1
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.1 }}
+              className="text-3xl sm:text-6xl font-normal text-[#1F1E1D] tracking-tight leading-tight sm:leading-tight"
+            >
+              Where thoughts pause, <br />
+              <span className="italic font-light text-[#8C3A32]">
+                and words resonate.
+              </span>
+            </motion.h1>
 
-  <motion.p
-    initial={{ opacity: 0, y: 16 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.7, delay: 0.2 }}
-    className="-mt-1 text-sm sm:text-base text-[#5A5654] leading-relaxed max-w-1xl mx-auto font-sans font-light"
-  >
-    Welcome to a quiet digital atelier curated for poets, storytellers,
-    and thinkers. Explore original verse, deep narrative prose, and
-    insightful literary essays gathered in one unified hearth.
-  </motion.p>
+            <motion.p
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.2 }}
+              className="-mt-1 text-sm sm:text-base text-[#5A5654] leading-relaxed max-w-1xl mx-auto font-sans font-light"
+            >
+              Welcome to a quiet digital atelier curated for poets, storytellers,
+              and thinkers. Explore original verse, deep narrative prose, and
+              insightful literary essays gathered in one unified hearth.
+            </motion.p>
 
-  <motion.div
-    initial={{ opacity: 0, y: 16 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.7, delay: 0.3 }}
-    className="flex items-center justify-center gap-4 pt-2"
-  >
-    <Link
-      href="/feed"
-      className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#2C2A29] text-[#FAF8F5] text-xs font-sans font-medium uppercase tracking-wider hover:bg-[#3D3732] transition-all shadow-sm"
-    >
-      <span>Explore Content</span>
-      <ArrowRight className="w-3.5 h-3.5" />
-    </Link>
-    <Link
-      href="/share"
-      className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#F3EFEA] border border-[#E3D9CC] text-[#2C2A29] text-xs font-sans font-medium uppercase tracking-wider hover:bg-[#E8E2D9] transition-all"
-    >
-      <span>Publish Verse</span>
-    </Link>
-  </motion.div>
-</section>
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.3 }}
+              className="flex items-center justify-center gap-4 pt-2"
+            >
+              <Link
+                href="/feed"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#2C2A29] text-[#FAF8F5] text-xs font-sans font-medium uppercase tracking-wider hover:bg-[#3D3732] transition-all shadow-sm"
+              >
+                <span>Explore Content</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+              <Link
+                href="/share"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#F3EFEA] border border-[#E3D9CC] text-[#2C2A29] text-xs font-sans font-medium uppercase tracking-wider hover:bg-[#E8E2D9] transition-all"
+              >
+                <span>Publish Verse</span>
+              </Link>
+            </motion.div>
+          </section>
 
           {/* ================= LATEST WORKS (COMPACT CARDS) ================= */}
           <section className="space-y-2">
@@ -225,5 +225,13 @@ export default function LandingPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LandingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#FAF7F2]" />}>
+      <LandingContent />
+    </Suspense>
   );
 }

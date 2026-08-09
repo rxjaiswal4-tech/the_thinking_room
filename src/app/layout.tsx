@@ -3,6 +3,8 @@ import { Lora, Inter } from 'next/font/google';
 import { Footer } from './components/Footer';
 import './globals.css';
 
+export const dynamic = "force-dynamic";
+
 const lora = Lora({ 
   subsets: ['latin'], 
   variable: '--font-lora',
