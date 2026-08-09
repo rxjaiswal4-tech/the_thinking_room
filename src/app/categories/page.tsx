@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import CategoriesMenu from "../components/CategoriesMenu";
@@ -82,7 +84,6 @@ export default function CategoriesPage() {
         }`}
       >
         <div className="max-w-5xl mx-auto px-4 sm:px-8 pt-12 pb-13 space-y-12">
-          
           {/* Categories Selector Component */}
           <section className="bg-[#FAF7F2]">
             <CategoriesMenu
