@@ -2,11 +2,12 @@
 
 export const dynamic = "force-dynamic";
 
-import React, { useEffect, useState } from "react";
-import { Share2, Sparkles, Clock, Calendar, User, RefreshCw } from "lucide-react";
+import React, { useEffect, useState, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Share2, Sparkles, Clock, Calendar, User, Search, X } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
-
-// Initialize Supabase client
+import { HighlightText } from "../components/HighlightsText";
+// Initialize Supabase client safely
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 const supabase =
@@ -36,23 +37,51 @@ const fallbackPoems: Poem[] = [
   },
 ];
 
-export default function FeedPage() {
+function FeedContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const searchQuery = searchParams.get("q") || "";
+
   const [poems, setPoems] = useState<Poem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchPoems = async () => {
+    setLoading(true);
+
     if (!supabase) {
-      setPoems(fallbackPoems);
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        setPoems(
+          fallbackPoems.filter(
+            (p) =>
+              p.title.toLowerCase().includes(q) ||
+              p.body.toLowerCase().includes(q) ||
+              p.author.toLowerCase().includes(q) ||
+              p.category.toLowerCase().includes(q)
+          )
+        );
+      } else {
+        setPoems(fallbackPoems);
+      }
       setLoading(false);
       return;
     }
 
     try {
-      // Changed table target from 'stanzas' to 'poems'
-      const { data, error } = await supabase
+      let queryBuilder = supabase
         .from("poems")
         .select("*")
         .order("created_at", { ascending: false });
+
+      // Apply multi-column search filter if query parameter exists
+      if (searchQuery.trim()) {
+        const term = `%${searchQuery.trim()}%`;
+        queryBuilder = queryBuilder.or(
+          `title.ilike.${term},body.ilike.${term},author.ilike.${term},category.ilike.${term}`
+        );
+      }
+
+      const { data, error } = await queryBuilder;
 
       if (error) {
         console.error("Supabase Error:", error);
@@ -72,7 +101,11 @@ export default function FeedPage() {
 
   useEffect(() => {
     fetchPoems();
-  }, []);
+  }, [searchQuery]);
+
+  const handleClearSearch = () => {
+    router.push("/feed");
+  };
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "N/A";
@@ -85,7 +118,7 @@ export default function FeedPage() {
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto px-4 py-8 sm:px-8 flex flex-col gap-10">
+    <div className="w-full max-w-5xl mx-auto px-4 py-8 sm:px-8 flex flex-col gap-8">
       {/* Feed Header */}
       <header className="text-center space-y-2 py-2">
         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F2EFE9] border border-[#E5E0D8] text-[11px] font-mono tracking-widest uppercase text-[#8C827A]">
@@ -100,6 +133,33 @@ export default function FeedPage() {
         </p>
       </header>
 
+      {/* Active Search Banner */}
+      {searchQuery && (
+        <div className="flex items-center justify-between px-5 py-3 rounded-2xl bg-[#F4F0E9] border border-[#E4DDD3]">
+          <div className="flex items-center gap-2 text-xs sm:text-sm font-serif text-[#2C2723]">
+            <Search className="w-4 h-4 text-[#8C827A]" />
+            <span>
+              Showing results for:{" "}
+              <strong className="font-medium italic text-[#1A1816]">
+                "{searchQuery}"
+              </strong>
+            </span>
+            {!loading && (
+              <span className="text-xs text-[#8C827A] font-mono ml-1">
+                ({poems.length} {poems.length === 1 ? "result" : "results"})
+              </span>
+            )}
+          </div>
+          <button
+            onClick={handleClearSearch}
+            className="flex items-center gap-1 px-2.5 py-1 text-xs font-serif text-[#786F66] hover:text-[#2C2723] rounded-lg hover:bg-[#EAE4DA] transition-colors"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>Clear search</span>
+          </button>
+        </div>
+      )}
+
       {/* Feed List */}
       <div className="flex flex-col gap-10">
         {loading ? (
@@ -113,8 +173,21 @@ export default function FeedPage() {
             </div>
           </div>
         ) : poems.length === 0 ? (
-          <div className="text-center p-12 rounded-3xl bg-[#FAFAFA] border border-[#EAE8E4] font-serif text-[#786F66]">
-            No poems published yet.
+          <div className="text-center p-12 rounded-3xl bg-[#FAFAFA] border border-[#EAE8E4] flex flex-col items-center gap-3">
+            <Search className="w-8 h-8 text-[#B0A69A]" />
+            <p className="font-serif text-[#2C2723] text-base sm:text-lg">
+              {searchQuery
+                ? `No matches found for "${searchQuery}"`
+                : "No poems published yet."}
+            </p>
+            {searchQuery && (
+              <button
+                onClick={handleClearSearch}
+                className="mt-2 text-xs font-serif text-[#8C827A] underline underline-offset-4 hover:text-[#2C2723]"
+              >
+                Clear query to view all posts
+              </button>
+            )}
           </div>
         ) : (
           poems.map((poem) => (
@@ -127,15 +200,16 @@ export default function FeedPage() {
                 {poem.category || "General"}
               </span>
 
+             
               {/* Title */}
               <h2 className="font-serif text-2xl sm:text-3xl font-medium text-[#2C2723] max-w-2xl">
-                {poem.title}
+                <HighlightText text={poem.title} query={searchQuery} />
               </h2>
 
               {/* Article Content */}
               <div className="w-full max-w-3xl my-2 py-4">
                 <p className="font-serif text-base sm:text-lg text-[#38332E] leading-relaxed whitespace-pre-line italic">
-                  {poem.body}
+                  <HighlightText text={poem.body} query={searchQuery} />
                 </p>
               </div>
 
@@ -170,5 +244,13 @@ export default function FeedPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function FeedPage() {
+  return (
+    <Suspense fallback={<div className="p-12 text-center font-serif text-[#786F66]">Loading feed...</div>}>
+      <FeedContent />
+    </Suspense>
   );
 }

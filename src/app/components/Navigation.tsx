@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -8,20 +8,16 @@ import {
   Feather,
   Compass,
   BookOpen,
-  Bookmark,
   PenTool,
   Sparkles,
   Menu,
   X,
   ChevronLeft,
   ChevronRight,
-  Search,
-  Bell,
-  User,
-  Settings,
-  LogOut,
+  Crown,
   Rss,
 } from "lucide-react";
+import { SearchBar } from "../components/SearchBar"; // Imported here
 
 interface NavItem {
   label: string;
@@ -34,7 +30,6 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Thinking Room", sublabel: "Sanctuary of thought", href: "/", icon: Compass },
   { label: "Poetic Stream", sublabel: "The daily feed", href: "/feed", icon: Rss },
   { label: "Categories", sublabel: "Anthologies & themes", href: "/categories", icon: BookOpen },
-  //{ label: "Saved Stanzas", sublabel: "Your quiet collection", href: "/saved", icon: Bookmark },
 ];
 
 interface NavigationProps {
@@ -45,12 +40,6 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
-  const [hasUnread, setHasUnread] = useState(true);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
-
-  const inputRef = useRef<HTMLInputElement>(null);
-  const mobileInputRef = useRef<HTMLInputElement>(null);
 
   // Safely sync collapse state to parent layout
   useEffect(() => {
@@ -59,37 +48,6 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
 
   const toggleCollapse = useCallback(() => {
     setIsCollapsed((prev) => !prev);
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const activeEl = document.activeElement as HTMLElement | null;
-      const activeTag = activeEl?.tagName;
-      const isEditable = activeEl?.isContentEditable ?? false;
-
-      if (
-        e.key === "/" &&
-        activeTag !== "INPUT" &&
-        activeTag !== "TEXTAREA" &&
-        !isEditable
-      ) {
-        e.preventDefault();
-        if (window.innerWidth < 1024) {
-          setIsMobileSearchOpen(true);
-          setTimeout(() => mobileInputRef.current?.focus(), 50);
-        } else {
-          inputRef.current?.focus();
-        }
-      } else if (e.key === "Escape") {
-        setIsMobileSearchOpen(false);
-        setIsProfileOpen(false);
-        inputRef.current?.blur();
-        mobileInputRef.current?.blur();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   useEffect(() => {
@@ -237,51 +195,9 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
             {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
 
-          <div className="relative flex-1 hidden sm:flex items-center">
-            <Search className="absolute left-3.5 w-4 h-4 text-[#8C827A] pointer-events-none" />
-            <input
-              ref={inputRef}
-              type="text"
-              placeholder="Search stanzas... (Press '/')"
-              className="w-full pl-9 pr-10 py-2 text-xs sm:text-sm bg-[#F3EFEA]/80 border border-[#E3D9CC] rounded-full text-[#2C2A29] placeholder-[#8C827A] focus:outline-none focus:ring-1 focus:ring-[#2C2A29]"
-            />
-            <kbd className="absolute right-3 inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono text-[#8C827A] bg-[#E8E2D9]/60 border border-[#D8D2C6] rounded pointer-events-none">
-              /
-            </kbd>
-          </div>
-
-          <button
-            onClick={() => setIsMobileSearchOpen(true)}
-            className="sm:hidden p-2 rounded-full hover:bg-[#F3EFEA] text-[#4A423A]"
-          >
-            <Search className="w-5 h-5" />
-          </button>
+          {/* Clean Sub-component Placement */}
+          <SearchBar className="flex-1" />
         </div>
-
-        <AnimatePresence>
-          {isMobileSearchOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="absolute inset-0 bg-[#FAF7F2] px-4 flex items-center gap-3 z-50 border-b border-[#EADFCF]"
-            >
-              <Search className="w-4 h-4 text-[#8C827A] shrink-0" />
-              <input
-                ref={mobileInputRef}
-                type="text"
-                placeholder="Search stanzas..."
-                className="w-full text-sm bg-transparent text-[#2C2A29] focus:outline-none"
-              />
-              <button
-                onClick={() => setIsMobileSearchOpen(false)}
-                className="p-1 rounded-full text-[#8C827A]"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <Link
@@ -292,74 +208,13 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
             <span>New Verse</span>
           </Link>
 
-          <button
-            onClick={() => setHasUnread(false)}
-            className="relative p-2 rounded-full hover:bg-[#F3EFEA] text-[#4A423A]"
+         {/* <Link
+            href="/premium"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/30 text-[#8A711C] hover:bg-[#D4AF37]/25 text-xs font-serif transition-colors shadow-sm"
           >
-            <Bell className="w-4 h-4" />
-            {hasUnread && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#8C3A32] ring-2 ring-[#FAF7F2]" />
-            )}
-          </button>
-
-          <div className="relative">
-            <button
-              onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="h-8 w-8 rounded-full bg-[#E8E2D9] border border-[#D8D2C6] flex items-center justify-center font-serif text-xs text-[#2C2A29]"
-            >
-              ER
-            </button>
-
-            <AnimatePresence>
-              {isProfileOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setIsProfileOpen(false)}
-                  />
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: -5 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: -5 }}
-                    className="absolute right-0 mt-2 w-48 rounded-2xl bg-[#FAF8F5] border border-[#E3D9CC] shadow-lg p-1.5 z-50"
-                  >
-                    <div className="px-3 py-2 border-b border-[#E3D9CC]/60 mb-1">
-                      <p className="font-serif text-xs font-medium text-[#2C2A29]">
-                        Elena Rostova
-                      </p>
-                      <p className="text-[10px] text-[#8C827A] font-mono">
-                        @elena_rostova
-                      </p>
-                    </div>
-                    <Link
-                      href="/profile"
-                      onClick={() => setIsProfileOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2 text-xs text-[#5A5654] hover:bg-[#F3EFEA] rounded-xl"
-                    >
-                      <User className="w-3.5 h-3.5" />
-                      <span>Profile Sanctuary</span>
-                    </Link>
-                    <Link
-                      href="/settings"
-                      onClick={() => setIsProfileOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2 text-xs text-[#5A5654] hover:bg-[#F3EFEA] rounded-xl"
-                    >
-                      <Settings className="w-3.5 h-3.5" />
-                      <span>Preferences</span>
-                    </Link>
-                    <div className="border-t border-[#E3D9CC]/60 my-1" />
-                    <button
-                      onClick={() => setIsProfileOpen(false)}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#8C3A32] hover:bg-[#F3EFEA] rounded-xl text-left"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                      <span>Sign Out</span>
-                    </button>
-                  </motion.div>
-                </>
-              )}
-            </AnimatePresence>
-          </div>
+            <Crown className="w-3.5 h-3.5 text-[#B8860B]" />
+            <span className="font-medium">Premium</span>
+          </Link> */}
         </div>
       </header>
     </>
