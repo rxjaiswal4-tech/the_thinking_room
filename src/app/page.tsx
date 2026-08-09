@@ -2,14 +2,14 @@
 
 import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles,
   ArrowRight,
-  Clock,
   Calendar,
   User,
   Share2,
+  X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Navigation } from "./components/Navigation";
@@ -28,6 +28,9 @@ function LandingContent() {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [poems, setPoems] = useState<Poem[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // State for tracking selected poem in popup
+  const [selectedPoem, setSelectedPoem] = useState<Poem | null>(null);
 
   useEffect(() => {
     async function fetchLatestLandingPoems() {
@@ -37,7 +40,6 @@ function LandingContent() {
       }
 
       try {
-        // Fetch top 3 latest updated/created poems strictly in order
         const { data, error } = await supabase
           .from("poems")
           .select("*")
@@ -59,6 +61,18 @@ function LandingContent() {
 
     fetchLatestLandingPoems();
   }, []);
+
+  // Prevent background scrolling when popup is active
+  useEffect(() => {
+    if (selectedPoem) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [selectedPoem]);
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "N/A";
@@ -183,13 +197,20 @@ function LandingContent() {
                 {poems.map((poem) => (
                   <article
                     key={poem.id}
-                    className="p-6 rounded-2xl bg-[#FAFAFA] border border-[#EAE8E4] shadow-sm flex flex-col justify-between gap-4 hover:border-[#DCD7CE] hover:shadow-md transition-all group"
+                    onClick={() => setSelectedPoem(poem)}
+                    className="p-6 rounded-2xl bg-[#FAFAFA] border border-[#EAE8E4] shadow-sm flex flex-col justify-between gap-4 hover:border-[#DCD7CE] hover:shadow-md transition-all group cursor-pointer"
                   >
-                    {/* Header: Category & Title */}
+                    {/* Header: Category & Share */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-[11px] font-serif text-[#786F66]">
                         <span className="italic">{poem.category || "General"}</span>
-                        <button className="text-[#8C827A] hover:text-[#2C2723] transition-colors">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(window.location.href);
+                          }} 
+                          className="text-[#8C827A] hover:text-[#2C2723] transition-colors"
+                        >
                           <Share2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -224,6 +245,85 @@ function LandingContent() {
 
         </div>
       </div>
+
+      {/* ================= WORK DETAIL POPUP MODAL ================= */}
+      <AnimatePresence>
+        {selectedPoem && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+            {/* Backdrop Blur Overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedPoem(null)}
+              className="fixed inset-0 bg-black/30 backdrop-blur-sm transition-opacity"
+            />
+
+            {/* Modal Box */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+              className="relative w-full max-w-2xl max-h-[85vh] bg-[#FAF7F2] border border-[#E3D9CC] rounded-3xl shadow-2xl overflow-hidden flex flex-col z-10"
+            >
+              {/* Top Header Controls */}
+              <div className="flex items-center justify-between px-6 sm:px-8 pt-6 pb-4 border-b border-[#E3D9CC]/60 bg-[#FAF7F2]/90 sticky top-0 backdrop-blur-md z-20">
+                <span className="text-xs font-mono uppercase tracking-widest text-[#8C3A32]">
+                  {selectedPoem.category || "General"}
+                </span>
+
+                <button
+                  onClick={() => setSelectedPoem(null)}
+                  className="p-1.5 rounded-full bg-[#F3EFEA] border border-[#E3D9CC] text-[#5A5654] hover:text-[#1F1E1D] hover:bg-[#E8E2D9] transition-all"
+                  aria-label="Close dialog"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Scrollable Content Body */}
+              <div className="p-6 sm:p-10 overflow-y-auto space-y-6 flex-1 custom-scrollbar">
+                <div className="space-y-2">
+                  <h2 className="text-2xl sm:text-3xl font-serif font-normal text-[#1F1E1D] leading-tight">
+                    {selectedPoem.title}
+                  </h2>
+                  <div className="flex items-center gap-4 text-xs font-serif text-[#7C7775]">
+                    <span className="flex items-center gap-1 text-[#2C2723]">
+                      <User className="w-3.5 h-3.5 text-[#8C3A32]" />
+                      {selectedPoem.author || "Anonymous"}
+                    </span>
+                    <span>•</span>
+                    <span className="font-mono text-[11px]">
+                      {formatDate(selectedPoem.updated_at || selectedPoem.created_at)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Stanza Text (Preserves spacing & wraps correctly) */}
+                <div className="pt-2 border-t border-[#E3D9CC]/40">
+                  <p className="font-serif text-base sm:text-lg text-[#2C2A29] leading-relaxed whitespace-pre-wrap italic">
+                    {selectedPoem.body}
+                  </p>
+                </div>
+              </div>
+
+              {/* Footer Actions */}
+              <div className="px-6 sm:px-8 py-4 border-t border-[#E3D9CC]/60 bg-[#F3EFEA]/50 flex items-center justify-between text-xs font-sans text-[#7C7775]">
+                <span>Stanza Platform</span>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(window.location.href);
+                  }}
+                  className="inline-flex items-center gap-1.5 text-[#8C3A32] hover:underline"
+                >
+                  <Share2 className="w-3.5 h-3.5" /> Share Piece
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
