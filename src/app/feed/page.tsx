@@ -1,12 +1,11 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
 import React, { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Share2, Sparkles, Clock, Calendar, User, Search, X } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { HighlightText } from "../components/HighlightsText";
+
 // Initialize Supabase client safely
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -73,7 +72,6 @@ function FeedContent() {
         .select("*")
         .order("created_at", { ascending: false });
 
-      // Apply multi-column search filter if query parameter exists
       if (searchQuery.trim()) {
         const term = `%${searchQuery.trim()}%`;
         queryBuilder = queryBuilder.or(
@@ -200,7 +198,6 @@ function FeedContent() {
                 {poem.category || "General"}
               </span>
 
-             
               {/* Title */}
               <h2 className="font-serif text-2xl sm:text-3xl font-medium text-[#2C2723] max-w-2xl">
                 <HighlightText text={poem.title} query={searchQuery} />
@@ -249,7 +246,13 @@ function FeedContent() {
 
 export default function FeedPage() {
   return (
-    <Suspense fallback={<div className="p-12 text-center font-serif text-[#786F66]">Loading feed...</div>}>
+    <Suspense
+      fallback={
+        <div className="p-12 text-center font-serif text-[#786F66]">
+          Loading feed...
+        </div>
+      }
+    >
       <FeedContent />
     </Suspense>
   );
