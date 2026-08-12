@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import CategoriesMenu from "../components/CategoriesMenu";
 import { Navigation } from "../components/Navigation";
-import { User, Calendar, Clock, Share2, Sparkles } from "lucide-react";
+import { User, Calendar, Clock, Share2, Sparkles, Check } from "lucide-react";
 
 interface Poem {
   id: string;
@@ -21,6 +21,7 @@ export default function CategoriesPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [poems, setPoems] = useState<Poem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchFilteredPoems() {
@@ -58,6 +59,33 @@ export default function CategoriesPage() {
 
     fetchFilteredPoems();
   }, [selectedCategory]);
+
+  const handleShare = async (poem: Poem) => {
+    const shareUrl = `${window.location.origin}/categories?id=${poem.id}`;
+    const shareData = {
+      title: poem.title,
+      text: `Read "${poem.title}" by ${poem.author || "Anonymous"} on Poetic Stream`,
+      url: shareUrl,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          console.error("Error sharing content:", err);
+        }
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setCopiedId(poem.id);
+        setTimeout(() => setCopiedId(null), 2000);
+      } catch (err) {
+        console.error("Failed to copy link:", err);
+      }
+    }
+  };
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "N/A";
@@ -159,9 +187,21 @@ export default function CategoriesPage() {
                         )}
                       </div>
 
-                      <button className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full hover:bg-[#F3F0EA] text-[#665E56] transition-colors border border-transparent hover:border-[#E8E4DC] shrink-0">
-                        <Share2 className="w-3.5 h-3.5" />
-                        <span className="text-xs font-serif">Share</span>
+                      <button
+                        onClick={() => handleShare(poem)}
+                        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full hover:bg-[#F3F0EA] text-[#665E56] transition-colors border border-transparent hover:border-[#E8E4DC] shrink-0"
+                      >
+                        {copiedId === poem.id ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-green-600" />
+                            <span className="text-xs font-serif text-green-600">Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Share2 className="w-3.5 h-3.5" />
+                            <span className="text-xs font-serif">Share</span>
+                          </>
+                        )}
                       </button>
                     </div>
                   </article>
