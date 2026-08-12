@@ -69,7 +69,7 @@ export default function SharePoemPage() {
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-serif text-[#5A5654] mb-1">
-                Your Name *
+                Author Name *
               </label>
               <input
                 type="text"
@@ -82,13 +82,13 @@ export default function SharePoemPage() {
 
             <div>
               <label className="block text-xs font-serif text-[#5A5654] mb-1">
-                Your Handle / Social Link *
+                Author Instagram Handle  *
               </label>
               <input
                 type="text"
                 name="Author Handle"
                 required
-                placeholder="e.g. @elena_rostova"
+                placeholder="e.g. elena_rostova"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs focus:outline-none focus:border-[#2C2A29] transition-colors"
               />
             </div>
@@ -96,7 +96,7 @@ export default function SharePoemPage() {
 
           <div>
             <label className="block text-xs font-serif text-[#5A5654] mb-1">
-              Your Email Address (For Editorial Contact) *
+              Author Email Address (For Editorial Contact) *
             </label>
             <input
               type="email"
@@ -145,13 +145,13 @@ export default function SharePoemPage() {
           {/* Stanza Content */}
           <div>
             <label className="block text-xs font-serif text-[#5A5654] mb-1">
-              Your Poem or Thought *
+               Poem or Thought *
             </label>
             <textarea
               name="Poem / Stanza Content"
               required
               rows={8}
-              placeholder="Write or paste your verses here..."
+              placeholder="Write or paste verses here..."
               className="w-full p-4 rounded-2xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs font-serif focus:outline-none focus:border-[#2C2A29] leading-relaxed transition-colors whitespace-pre-line"
             />
           </div>
