@@ -10,6 +10,7 @@ import {
   User,
   Share2,
   X,
+  Check,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Navigation } from "./components/Navigation";
@@ -31,6 +32,9 @@ function LandingContent() {
   
   // State for tracking selected poem in popup
   const [selectedPoem, setSelectedPoem] = useState<Poem | null>(null);
+  
+  // State for showing share feedback
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchLatestLandingPoems() {
@@ -73,6 +77,34 @@ function LandingContent() {
       document.body.style.overflow = "unset";
     };
   }, [selectedPoem]);
+
+  const handleShare = async (e: React.MouseEvent, poem: Poem) => {
+    e.stopPropagation();
+    const shareUrl = `${window.location.origin}/categories?id=${poem.id}`;
+    const shareData = {
+      title: poem.title,
+      text: `Read "${poem.title}" by ${poem.author || "Anonymous"} on Stanza`,
+      url: shareUrl,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          console.error("Error sharing content:", err);
+        }
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setCopiedId(poem.id);
+        setTimeout(() => setCopiedId(null), 2000);
+      } catch (err) {
+        console.error("Failed to copy link:", err);
+      }
+    }
+  };
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "N/A";
@@ -205,13 +237,15 @@ function LandingContent() {
                       <div className="flex items-center justify-between text-[11px] font-serif text-[#786F66]">
                         <span className="italic">{poem.category || "General"}</span>
                         <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigator.clipboard.writeText(window.location.href);
-                          }} 
-                          className="text-[#8C827A] hover:text-[#2C2723] transition-colors"
+                          onClick={(e) => handleShare(e, poem)} 
+                          className="text-[#8C827A] hover:text-[#2C2723] transition-colors flex items-center gap-1"
+                          title="Share Piece"
                         >
-                          <Share2 className="w-3.5 h-3.5" />
+                          {copiedId === poem.id ? (
+                            <Check className="w-3.5 h-3.5 text-green-600" />
+                          ) : (
+                            <Share2 className="w-3.5 h-3.5" />
+                          )}
                         </button>
                       </div>
 
@@ -312,12 +346,20 @@ function LandingContent() {
               <div className="px-6 sm:px-8 py-4 border-t border-[#E3D9CC]/60 bg-[#F3EFEA]/50 flex items-center justify-between text-xs font-sans text-[#7C7775]">
                 <span>Stanza Platform</span>
                 <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(window.location.href);
-                  }}
-                  className="inline-flex items-center gap-1.5 text-[#8C3A32] hover:underline"
+                  onClick={(e) => handleShare(e, selectedPoem)}
+                  className="inline-flex items-center gap-1.5 text-[#8C3A32] hover:underline cursor-pointer"
                 >
-                  <Share2 className="w-3.5 h-3.5" /> Share Piece
+                  {copiedId === selectedPoem.id ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-green-600" />
+                      <span className="text-green-600">Copied Link!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="w-3.5 h-3.5" />
+                      <span>Share Piece</span>
+                    </>
+                  )}
                 </button>
               </div>
             </motion.div>
