@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Navigation } from "../components/Navigation";
-import { Footer } from "../components/Footer";
+// import { Footer } from "../components/Footer";
 import { Feather, ArrowLeft, Send, Sparkles } from "lucide-react";
 
 export default function SharePoemPage() {
@@ -181,7 +181,7 @@ export default function SharePoemPage() {
           </button>
         </motion.form>
       </div>
-      <Footer/>
+      {/* <Footer/> */}
     </div>
   );
 }
