@@ -245,7 +245,7 @@ function FeedContent() {
                 <div className="flex flex-col items-center sm:items-start gap-1 text-left">
                   <div className="flex items-center gap-1.5 text-[#2C2723] font-medium">
                     <User className="w-3.5 h-3.5 text-[#8C827A]" />
-                    <span>Written By: {poem.author || "Anonymous"}</span>
+                    <span>Author: {poem.author || "Anonymous"}</span>
                   </div>
                   <div className="flex items-center gap-1.5 text-[#8C827A] text-[11px] font-mono">
                     <Calendar className="w-3 h-3" />
