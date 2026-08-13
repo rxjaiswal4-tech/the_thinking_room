@@ -4,11 +4,113 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Navigation } from "../components/Navigation";
-// import { Footer } from "../components/Footer";
-import { Feather, ArrowLeft, Send, Sparkles } from "lucide-react";
+import { Feather, ArrowLeft, Send, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function SharePoemPage() {
+  const [formData, setFormData] = useState({
+    author: "",
+    instagram: "",
+    email: "",
+    title: "",
+    category: "Reflections",
+    body: "",
+  });
+
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  // Security Helper: Strip HTML tags and prevent URL/Phishing submissions
+  const validateAndSanitize = (data: typeof formData) => {
+    const urlPattern = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\/[^\s]*)/gi;
+
+    // Check for malicious links or phishing text in text fields
+    if (
+      urlPattern.test(data.author) ||
+      urlPattern.test(data.title) ||
+      urlPattern.test(data.body)
+    ) {
+      throw new Error("Submissions containing external web links or URLs are not allowed.");
+    }
+
+    // Sanitize string entries (Strips HTML tags)
+    const sanitize = (text: string) => text.replace(/<[^>]*>?/gm, "").trim();
+
+    return {
+      author: sanitize(data.author),
+      instagram: sanitize(data.instagram).replace("@", ""),
+      email: sanitize(data.email),
+      title: sanitize(data.title),
+      category: sanitize(data.category),
+      body: sanitize(data.body),
+    };
+  };
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setStatusMessage(null);
+
+    try {
+      if (!supabase) {
+        throw new Error("Database connection error. Please try again later.");
+      }
+
+      // 1. Sanitize input & validate anti-phishing rule
+      const cleanData = validateAndSanitize(formData);
+
+      // 2. Direct insert into Supabase with default unpublished status (for editor review)
+      const { error } = await supabase.from("submissions").insert([
+        {
+          author: cleanData.author,
+          instagram: cleanData.instagram,
+          email: cleanData.email,
+          title: cleanData.title,
+          category: cleanData.category,
+          body: cleanData.body,
+          is_published: false, // Default pending editorial review
+        },
+      ]);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      setStatusMessage({
+        type: "success",
+        text: "Your submission has been sent to the editor's desk!",
+      });
+
+      // Clear form
+      setFormData({
+        author: "",
+        instagram: "",
+        email: "",
+        title: "",
+        category: "Reflections",
+        body: "",
+      });
+    } catch (err: any) {
+      setStatusMessage({
+        type: "error",
+        text: err.message || "Failed to submit. Please try again.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#FAF7F2] text-[#2C2A29] py-10 px-4 sm:px-6 lg:px-8 font-sans relative overflow-x-hidden">
@@ -20,9 +122,9 @@ export default function SharePoemPage() {
           backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
         }}
       />
-      <Navigation /> 
-      
-      <div className="max-w-2xl mx-auto space-y-6">
+      <Navigation />
+
+      <div className="max-w-2xl mx-auto space-y-6 pt-6">
         {/* Navigation Back Link */}
         <Link
           href="/"
@@ -46,26 +148,33 @@ export default function SharePoemPage() {
           </p>
         </div>
 
-        {/* FormSubmit Form */}
+        {/* Feedback Alert */}
+        {statusMessage && (
+          <div
+            className={`p-4 rounded-2xl border text-xs font-serif flex items-center gap-3 ${
+              statusMessage.type === "success"
+                ? "bg-[#EFEFD0]/50 border-[#8A9A5B] text-[#2D3B1E]"
+                : "bg-red-50 border-red-200 text-red-800"
+            }`}
+          >
+            {statusMessage.type === "success" ? (
+              <CheckCircle2 className="w-4 h-4 text-[#8A9A5B] shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+            )}
+            <span>{statusMessage.text}</span>
+          </div>
+        )}
+
+        {/* Supabase Secure Submission Form */}
         <motion.form
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          action="https://formsubmit.co/rxjaiswal4@gmail.com"
-          method="POST"
-          onSubmit={() => setIsSubmitting(true)}
+          onSubmit={handleSubmit}
           className="bg-[#FAF8F5] border border-[#E3D9CC] rounded-3xl p-6 sm:p-8 shadow-[0_4px_20px_rgba(44,42,41,0.02)] space-y-5"
         >
-          {/* FormSubmit Configuration Fields */}
-          <input
-            type="hidden"
-            name="_subject"
-            value="New Poetry / Thought Submission for Stanza Feed"
-          />
-          <input type="hidden" name="_captcha" value="false" />
-          <input type="hidden" name="_next" value="https://the-thinking-room-sage.vercel.app/" />
-
-          {/* Author / Contributor Info */}
+          {/* Author Info */}
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-serif text-[#5A5654] mb-1">
@@ -73,8 +182,10 @@ export default function SharePoemPage() {
               </label>
               <input
                 type="text"
-                name="Author Name"
+                name="author"
                 required
+                value={formData.author}
+                onChange={handleChange}
                 placeholder="e.g. Elena Rostova"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs focus:outline-none focus:border-[#2C2A29] transition-colors"
               />
@@ -82,12 +193,14 @@ export default function SharePoemPage() {
 
             <div>
               <label className="block text-xs font-serif text-[#5A5654] mb-1">
-                Author Instagram Handle  *
+                Author Instagram Handle *
               </label>
               <input
                 type="text"
-                name="Author Handle"
+                name="instagram"
                 required
+                value={formData.instagram}
+                onChange={handleChange}
                 placeholder="e.g. elena_rostova"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs focus:outline-none focus:border-[#2C2A29] transition-colors"
               />
@@ -102,12 +215,14 @@ export default function SharePoemPage() {
               type="email"
               name="email"
               required
+              value={formData.email}
+              onChange={handleChange}
               placeholder="name@example.com"
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs focus:outline-none focus:border-[#2C2A29] transition-colors"
             />
           </div>
 
-          {/* Piece Meta */}
+          {/* Piece Details */}
           <div className="grid sm:grid-cols-3 gap-4">
             <div className="sm:col-span-2">
               <label className="block text-xs font-serif text-[#5A5654] mb-1">
@@ -115,8 +230,10 @@ export default function SharePoemPage() {
               </label>
               <input
                 type="text"
-                name="Poem Title"
+                name="title"
                 required
+                value={formData.title}
+                onChange={handleChange}
                 placeholder="e.g. Solitude in Quiet Light"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs focus:outline-none focus:border-[#2C2A29] transition-colors"
               />
@@ -127,8 +244,9 @@ export default function SharePoemPage() {
                 Category *
               </label>
               <select
-                name="Category"
-                defaultValue="Reflections"
+                name="category"
+                value={formData.category}
+                onChange={handleChange}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs focus:outline-none focus:border-[#2C2A29] transition-colors"
               >
                 <option value="Reflections">Reflections</option>
@@ -145,18 +263,20 @@ export default function SharePoemPage() {
           {/* Stanza Content */}
           <div>
             <label className="block text-xs font-serif text-[#5A5654] mb-1">
-               Poem or Thought *
+              Poem or Thought *
             </label>
             <textarea
-              name="Poem / Stanza Content"
+              name="body"
               required
               rows={8}
+              value={formData.body}
+              onChange={handleChange}
               placeholder="Write or paste verses here..."
               className="w-full p-4 rounded-2xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs font-serif focus:outline-none focus:border-[#2C2A29] leading-relaxed transition-colors whitespace-pre-line"
             />
           </div>
 
-          {/* Note */}
+          {/* Editorial Note */}
           <div className="p-3.5 rounded-xl bg-[#F3EFEA]/70 border border-[#E3D9CC]/80 flex items-start gap-2.5">
             <Sparkles className="w-4 h-4 text-[#7C7775] shrink-0 mt-0.5" />
             <p className="text-[11px] font-serif text-[#665E56] leading-relaxed">
@@ -164,11 +284,11 @@ export default function SharePoemPage() {
             </p>
           </div>
 
-          {/* Submit Action */}
+          {/* Action Button */}
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-3.5 rounded-full bg-[#2C2A29] text-[#FAF8F5] text-xs font-serif hover:bg-[#3D3732] transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+            className="w-full py-3.5 rounded-full bg-[#2C2A29] text-[#FAF8F5] text-xs font-serif hover:bg-[#3D3732] transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer"
           >
             {isSubmitting ? (
               <span>Sending Submission...</span>
@@ -181,7 +301,6 @@ export default function SharePoemPage() {
           </button>
         </motion.form>
       </div>
-      {/* <Footer/> */}
     </div>
   );
 }
