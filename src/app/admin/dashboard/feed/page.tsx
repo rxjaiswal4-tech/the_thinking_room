@@ -4,8 +4,9 @@ export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Feather, Plus, CheckCircle2, AlertCircle, RefreshCw, Trash2, BookOpen } from "lucide-react";
+import { Feather, Plus, CheckCircle2, AlertCircle, ArrowLeft, RefreshCw, Trash2, BookOpen } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import Link from 'next/link';
 
 interface Poem {
   id: string;
@@ -129,26 +130,40 @@ export default function AdminFeedPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#2C2A29] py-10 px-4 sm:px-6 lg:px-8 font-sans">
+    <div className="min-h-screen bg-[#FAF7F2] text-[#2C2A29] py-6 sm:py-10 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="max-w-4xl mx-auto space-y-8">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#E3D9CC] pb-6">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-[#7C7775] mb-1">
-              <Feather className="w-4 h-4 text-[#2C2A29]" />
+        <header className="flex flex-col gap-4 border-b border-[#E3D9CC] pb-6">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-[#5E5A58]">
+              <Feather className="w-4 h-4 text-[#2C2A29]" aria-hidden="true" />
               <span>Editorial Curation Control</span>
             </div>
+
             <h1 className="font-serif text-2xl sm:text-3xl font-normal text-[#1F1E1D]">
               Manage Feed Submissions
             </h1>
           </div>
-          <button
-            onClick={() => router.push("/")}
-            className="text-xs font-serif text-[#7C7775] hover:text-[#2C2A29] underline transition-colors"
-          >
-            View Live Feed &rarr;
-          </button>
-        </div>
+
+          <div className="flex items-center justify-between gap-4">
+            <Link
+              href="/admin/dashboard"
+              aria-label="Back to Dashboard Feed"
+              className="inline-flex items-center gap-1.5 text-xs font-serif text-[#000000] hover:text-[#2C2A29] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2C2A29] rounded transition-colors py-1"
+            >
+              <ArrowLeft className="w-4.5 h-4.5" aria-hidden="true" />
+              <span>Back to Dashboard Feed</span>
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="text-xs font-serif text-[#131211] hover:text-[#2C2A29]  focus-visible:ring-[#2C2A29] rounded transition-colors py-1"
+            >
+              View Live Feed &rarr;
+            </button>
+          </div>
+        </header>
 
         {/* Status Notification */}
         {status && (

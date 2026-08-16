@@ -206,7 +206,7 @@ export default function AdminShareContentPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E3D9CC] pb-6">
           <div className="space-y-1">
             <Link
-              href="/admin/dashboard/feed"
+              href="/admin/dashboard"
               className="inline-flex items-center gap-1.5 text-xs font-serif text-[#7C7775] hover:text-[#2C2A29] transition-colors mb-2"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
