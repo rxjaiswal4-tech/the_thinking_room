@@ -207,7 +207,7 @@ export default function AdminShareContentPage() {
           <div className="space-y-1">
             <Link
               href="/admin/dashboard"
-              className="inline-flex items-center gap-1.5 text-xs font-serif text-[#7C7775] hover:text-[#2C2A29] transition-colors mb-2"
+              className="inline-flex items-center gap-1.5 text-xs font-serif text-[#070706] hover:text-[#2C2A29] transition-colors mb-2"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Back to Dashboard Feed</span>
