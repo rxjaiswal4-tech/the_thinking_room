@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2,
@@ -15,19 +16,24 @@ import {
   X,
   Send,
   RefreshCw,
+  Search,
+  Check,
+  ExternalLink,
+  LogOut,
+  ShieldCheck,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
 interface Submission {
   id: string;
-  created_at: string;
+  created_at?: string;
   author: string;
-  instagram: string;
-  email: string;
+  instagram?: string;
+  email?: string;
   title: string;
   category: string;
   body: string;
-  is_published: boolean;
+  is_published?: boolean;
 }
 
 // Inline Instagram Icon
@@ -48,36 +54,80 @@ const InstagramIcon = ({ className = "w-3.5 h-3.5" }: { className?: string }) =>
 );
 
 export default function AdminShareContentPage() {
+  const router = useRouter();
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [editingSubmission, setEditingSubmission] = useState<Submission | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
 
-  // 1. Fetch ONLY UNPUBLISHED submissions from Supabase
+  // 1. Fetch submissions from Supabase with resilient direct query and server API fallback
   const fetchSubmissions = async () => {
     setLoading(true);
     setErrorDetails(null);
 
-    if (!supabase) {
-      setErrorDetails("Supabase client is not initialized.");
-      setLoading(false);
-      return;
-    }
-
     try {
-      const { data, error } = await supabase
+      // Check auth status
+      const { data: authData } = await supabase.auth.getUser();
+      if (authData?.user?.email) {
+        setCurrentUser(authData.user.email);
+      }
+
+      // Step A: Query Supabase directly
+      let directData: any[] | null = null;
+      const { data: orderedData, error: orderError } = await supabase
         .from("submissions")
         .select("*")
-        .eq("is_published", false) // <-- Filter: Only fetch pending/unpublished
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      setSubmissions(data || []);
+      if (orderError) {
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from("submissions")
+          .select("*");
+
+        if (!fallbackError) {
+          directData = fallbackData;
+        }
+      } else {
+        directData = orderedData;
+      }
+
+      // Step B: If direct query returned 0 rows (e.g. RLS blocked anon client), fetch from server API route
+      if (!directData || directData.length === 0) {
+        try {
+          const res = await fetch("/api/admin/submissions");
+          if (res.ok) {
+            const json = await res.json();
+            if (json.data && json.data.length > 0) {
+              directData = json.data;
+            }
+            if (json.user && !currentUser) {
+              setCurrentUser(json.user);
+            }
+          }
+        } catch (apiErr) {
+          console.warn("API fallback fetch:", apiErr);
+        }
+      }
+
+      // Filter out records where is_published is true (if field present)
+      const pending = (directData || [])
+        .filter((item: any) => item.is_published !== true)
+        .sort((a: any, b: any) => {
+          if (a.created_at && b.created_at) {
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          }
+          return 0;
+        });
+
+      setSubmissions(pending);
     } catch (err: any) {
       console.error("Error fetching submissions:", err);
-      setErrorDetails(err.message || "Failed to fetch from Supabase");
+      setErrorDetails(err.message || "Failed to fetch submissions from Supabase.");
       showToast("Error loading submissions");
     } finally {
       setLoading(false);
@@ -88,40 +138,52 @@ export default function AdminShareContentPage() {
     fetchSubmissions();
   }, []);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.refresh();
+    router.push("/login");
   };
 
-  // 2. Publish submission: Copies to 'poems' and DELETES from 'submissions' feed
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // 2. Publish submission: Copies to 'poems' and DELETES from 'submissions'
   const handlePublish = async (submission: Submission) => {
     setActionLoadingId(submission.id);
     try {
-      if (!supabase) return;
-
       // Step A: Insert into poems table
-      const { error: insertError } = await supabase.from("poems").insert([
-        {
-          title: submission.title,
-          body: submission.body,
-          author: submission.author,
-          category: submission.category,
-        },
-      ]);
+      const { error: insertError } = await supabase
+        .from("poems")
+        .insert([
+          {
+            title: submission.title,
+            body: submission.body,
+            author: submission.author || "Anonymous",
+            category: submission.category || "General",
+          },
+        ]);
 
       if (insertError) throw insertError;
 
-      // Step B: Delete from submissions table so it disappears permanently from feed
+      // Step B: Delete from submissions table
       const { error: deleteError } = await supabase
         .from("submissions")
         .delete()
         .eq("id", submission.id);
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.warn("Could not delete from submissions, attempting soft update:", deleteError);
+        await supabase
+          .from("submissions")
+          .update({ is_published: true })
+          .eq("id", submission.id);
+      }
 
       // Step C: Update state UI immediately
       setSubmissions((prev) => prev.filter((item) => item.id !== submission.id));
-      showToast(`"${submission.title}" published and moved to poems!`);
+      showToast(`"${submission.title}" published and added to live poems!`);
     } catch (err: any) {
       console.error("Publish error:", err);
       showToast(err.message || "Failed to publish submission.");
@@ -130,19 +192,17 @@ export default function AdminShareContentPage() {
     }
   };
 
-  // Delete/Reject submission
+  // Delete / Reject submission
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to reject and delete this submission?")) return;
 
     setActionLoadingId(id);
     try {
-      if (!supabase) return;
-
       const { error } = await supabase.from("submissions").delete().eq("id", id);
       if (error) throw error;
 
       setSubmissions((prev) => prev.filter((item) => item.id !== id));
-      showToast("Submission deleted.");
+      showToast("Submission deleted successfully.");
     } catch (err: any) {
       console.error("Delete error:", err);
       showToast(err.message || "Failed to delete submission.");
@@ -154,7 +214,7 @@ export default function AdminShareContentPage() {
   // Save changes made in Modal
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingSubmission || !supabase) return;
+    if (!editingSubmission) return;
 
     try {
       const { error } = await supabase
@@ -164,8 +224,8 @@ export default function AdminShareContentPage() {
           author: editingSubmission.author,
           category: editingSubmission.category,
           body: editingSubmission.body,
-          email: editingSubmission.email,
-          instagram: editingSubmission.instagram,
+          email: editingSubmission.email || null,
+          instagram: editingSubmission.instagram || null,
         })
         .eq("id", editingSubmission.id);
 
@@ -178,15 +238,32 @@ export default function AdminShareContentPage() {
       );
 
       setEditingSubmission(null);
-      showToast("Submission updated.");
+      showToast("Submission changes saved.");
     } catch (err: any) {
       console.error("Update error:", err);
       showToast(err.message || "Failed to save changes.");
     }
   };
 
+  // Filtered submissions based on search and category
+  const filteredSubmissions = useMemo(() => {
+    return submissions.filter((item) => {
+      const matchesSearch =
+        item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.author?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.body?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.email && item.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (item.instagram && item.instagram.toLowerCase().includes(searchQuery.toLowerCase()));
+
+      const matchesCategory =
+        selectedCategory === "All" || item.category === selectedCategory;
+
+      return matchesSearch && matchesCategory;
+    });
+  }, [submissions, searchQuery, selectedCategory]);
+
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#2C2A29] p-6 sm:p-10 font-sans relative">
+    <div className="min-h-screen bg-[#FAF7F2] text-[#2C2A29] p-6 sm:p-10 font-sans relative selection:bg-[#E8E2D9]">
       {/* Toast Banner */}
       <AnimatePresence>
         {toastMessage && (
@@ -194,9 +271,10 @@ export default function AdminShareContentPage() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed top-5 right-5 z-50 bg-[#2C2A29] text-[#FAF8F5] px-4 py-2.5 rounded-xl text-xs font-serif shadow-lg border border-[#3D3732]"
+            className="fixed top-5 right-5 z-50 bg-[#2C2A29] text-[#FAF8F5] px-5 py-3 rounded-2xl text-xs font-serif shadow-xl border border-[#3D3732] flex items-center gap-2"
           >
-            {toastMessage}
+            <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{toastMessage}</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -205,90 +283,162 @@ export default function AdminShareContentPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E3D9CC] pb-6">
           <div className="space-y-1">
-            <Link
-              href="/admin/dashboard"
-              className="inline-flex items-center gap-1.5 text-xs font-serif text-[#070706] hover:text-[#2C2A29] transition-colors mb-2"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to Dashboard Feed</span>
-            </Link>
+            <div className="flex items-center gap-4 mb-2">
+              <Link
+                href="/admin/dashboard"
+                className="inline-flex items-center gap-1.5 text-xs font-serif text-[#2C2A29] hover:text-[#8C3A32] transition-colors"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back to Dashboard Feed</span>
+              </Link>
+              <Link
+                href="/"
+                target="_blank"
+                className="inline-flex items-center gap-1 text-xs font-serif text-[#7C7775] hover:text-[#2C2A29] underline transition-colors"
+              >
+                <span>View Live Feed</span>
+                <ExternalLink className="w-3 h-3" />
+              </Link>
+            </div>
             <h1 className="font-serif text-2xl sm:text-3xl text-[#1F1E1D] flex items-center gap-2">
               <span>Editorial Desk</span>
               <Sparkles className="w-5 h-5 text-[#8C3A32]" />
             </h1>
             <p className="text-xs font-serif text-[#7C7775]">
-              Review, edit, and publish community submissions to the live anthology.
+              Review, edit, and publish community submissions directly from Supabase.
             </p>
           </div>
 
-          <button
-            onClick={fetchSubmissions}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#F3EFEA] border border-[#E3D9CC] text-xs font-serif hover:bg-[#E8E2D9] transition-all self-start sm:self-auto"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-            <span>Refresh Submissions</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-3 self-start sm:self-auto">
+            {currentUser && (
+              <div className="px-3 py-1.5 rounded-xl bg-[#F3EFEA] border border-[#E3D9CC] text-[11px] font-mono text-[#5A5654] flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span>{currentUser}</span>
+              </div>
+            )}
+
+            <button
+              onClick={fetchSubmissions}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#F3EFEA] border border-[#E3D9CC] text-xs font-serif hover:bg-[#E8E2D9] text-[#2C2A29] transition-all cursor-pointer active:scale-95"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-[#8C3A32]" : ""}`} />
+              <span>Refresh Submissions</span>
+            </button>
+
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-red-200 text-red-700 text-xs font-serif hover:bg-red-50 transition-colors cursor-pointer"
+              title="Sign Out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Exit</span>
+            </button>
+          </div>
         </div>
 
         {/* Connection Error Banner */}
         {errorDetails && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-800 space-y-1">
-            <p className="font-semibold">Supabase Connection Error:</p>
+            <p className="font-semibold">Supabase Connection Notice:</p>
             <p className="font-mono text-[11px]">{errorDetails}</p>
           </div>
         )}
 
+        {/* Search & Category Filter Bar */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#F3EFEA]/60 p-3 rounded-2xl border border-[#E3D9CC]">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7C7775]" />
+            <input
+              type="text"
+              placeholder="Search by title, author, verses, or email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 rounded-xl bg-[#FAF8F5] border border-[#E3D9CC] text-xs font-serif focus:outline-none focus:border-[#8C3A32] placeholder:text-[#A09A96]"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="px-3 py-2 rounded-xl bg-[#FAF8F5] border border-[#E3D9CC] text-xs font-serif focus:outline-none text-[#2C2A29]"
+            >
+              <option value="All">All Categories</option>
+              <option value="Reflections">Reflections</option>
+              <option value="Free Verse">Free Verse</option>
+              <option value="Sonnets">Sonnets</option>
+              <option value="Nature & Sea">Nature & Sea</option>
+              <option value="Nocturne">Nocturne</option>
+              <option value="Elegies">Elegies</option>
+              <option value="Urban Life">Urban Life</option>
+            </select>
+
+            <span className="text-[11px] font-mono text-[#7C7775] whitespace-nowrap px-2">
+              {filteredSubmissions.length} pending
+            </span>
+          </div>
+        </div>
+
         {/* Content List */}
         {loading ? (
           <div className="space-y-4">
-            {[1, 2].map((i) => (
+            {[1, 2, 3].map((i) => (
               <div
                 key={i}
                 className="p-6 rounded-3xl bg-[#FAF8F5] border border-[#E3D9CC] animate-pulse h-40"
               />
             ))}
           </div>
-        ) : submissions.length === 0 ? (
+        ) : filteredSubmissions.length === 0 ? (
           <div className="text-center py-16 bg-[#FAF8F5] border border-[#E3D9CC] rounded-3xl space-y-2">
-            <p className="font-serif text-sm text-[#2C2A29]">Desk is clear!</p>
-            <p className="font-serif text-xs text-[#7C7775]">
-              There are currently no pending submissions.
+            <div className="w-10 h-10 rounded-full bg-[#F3EFEA] flex items-center justify-center mx-auto text-[#7C7775]">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+            </div>
+            <p className="font-serif text-sm text-[#2C2A29]">
+              {searchQuery ? "No matching submissions found" : "Desk is clear!"}
+            </p>
+            <p className="font-serif text-xs text-[#7C7775] max-w-sm mx-auto">
+              {searchQuery
+                ? "Try adjusting your search terms or category filter."
+                : "There are currently no new submissions waiting for review."}
             </p>
           </div>
         ) : (
           <div className="space-y-6">
-            {submissions.map((item) => (
+            {filteredSubmissions.map((item) => (
               <motion.article
                 key={item.id}
                 layout
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-[#FAF8F5] border border-[#E3D9CC] rounded-3xl p-6 sm:p-8 shadow-[0_4px_20px_rgba(44,42,41,0.02)] space-y-5"
+                className="bg-[#FAF8F5] border border-[#E3D9CC] rounded-3xl p-6 sm:p-8 shadow-[0_4px_20px_rgba(44,42,41,0.02)] space-y-5 hover:border-[#D1C4B4] transition-all"
               >
                 {/* Meta Bar */}
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-serif border-b border-[#E3D9CC]/60 pb-3">
-                  <span className="px-3 py-1 rounded-full bg-[#F3EFEA] border border-[#E3D9CC] text-[#8C3A32] font-mono text-[10px] uppercase tracking-wider">
-                    {item.category}
+                  <span className="px-3 py-1 rounded-full bg-[#F3EFEA] border border-[#E3D9CC] text-[#8C3A32] font-mono text-[10px] uppercase tracking-wider font-semibold">
+                    {item.category || "General"}
                   </span>
-                  <div className="flex items-center gap-4 text-[#7C7775]">
+                  <div className="flex flex-wrap items-center gap-4 text-[#7C7775]">
                     {item.email && (
-                      <span className="flex items-center gap-1">
-                        <Mail className="w-3.5 h-3.5" />
+                      <span className="flex items-center gap-1.5">
+                        <Mail className="w-3.5 h-3.5 text-[#8C3A32]" />
                         {item.email}
                       </span>
                     )}
                     {item.instagram && (
-                      <span className="flex items-center gap-1">
-                        <InstagramIcon className="w-3.5 h-3.5" />
+                      <span className="flex items-center gap-1.5">
+                        <InstagramIcon className="w-3.5 h-3.5 text-[#8C3A32]" />
                         @{item.instagram}
                       </span>
                     )}
-                    <span className="flex items-center gap-1 font-mono text-[11px]">
+                    <span className="flex items-center gap-1.5 font-mono text-[11px]">
                       <Calendar className="w-3.5 h-3.5" />
                       {item.created_at
-                        ? new Date(item.created_at).toLocaleDateString()
-                        : "N/A"}
+                        ? new Date(item.created_at).toLocaleDateString(undefined, {
+                            dateStyle: "medium",
+                          })
+                        : "Recent"}
                     </span>
                   </div>
                 </div>
@@ -298,14 +448,14 @@ export default function AdminShareContentPage() {
                   <h2 className="font-serif text-xl sm:text-2xl text-[#1F1E1D]">
                     {item.title}
                   </h2>
-                  <p className="text-xs font-serif text-[#7C7775] flex items-center gap-1">
-                    <User className="w-3 h-3 text-[#8C3A32]" />
-                    <span>{item.author}</span>
+                  <p className="text-xs font-serif text-[#7C7775] flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-[#8C3A32]" />
+                    <span>Submitted by <strong className="text-[#2C2A29]">{item.author || "Anonymous"}</strong></span>
                   </p>
                 </div>
 
                 {/* Stanza Body */}
-                <div className="p-4 rounded-2xl bg-[#F3EFEA]/50 border border-[#E3D9CC]/60">
+                <div className="p-5 rounded-2xl bg-[#F3EFEA]/50 border border-[#E3D9CC]/60">
                   <p className="font-serif text-xs sm:text-sm text-[#2C2A29] leading-relaxed whitespace-pre-wrap italic">
                     {item.body}
                   </p>
@@ -316,7 +466,7 @@ export default function AdminShareContentPage() {
                   <button
                     onClick={() => handleDelete(item.id)}
                     disabled={actionLoadingId === item.id}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-red-200 text-red-700 text-xs font-serif hover:bg-red-50 transition-colors disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-red-200 text-red-700 text-xs font-serif hover:bg-red-50 transition-colors disabled:opacity-50 cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Reject</span>
@@ -325,7 +475,7 @@ export default function AdminShareContentPage() {
                   <button
                     onClick={() => setEditingSubmission(item)}
                     disabled={actionLoadingId === item.id}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#F3EFEA] border border-[#E3D9CC] text-[#2C2A29] text-xs font-serif hover:bg-[#E8E2D9] transition-colors disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#F3EFEA] border border-[#E3D9CC] text-[#2C2A29] text-xs font-serif hover:bg-[#E8E2D9] transition-colors disabled:opacity-50 cursor-pointer"
                   >
                     <Edit3 className="w-3.5 h-3.5" />
                     <span>Edit Content</span>
@@ -334,9 +484,9 @@ export default function AdminShareContentPage() {
                   <button
                     onClick={() => handlePublish(item)}
                     disabled={actionLoadingId === item.id}
-                    className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full bg-[#2C2A29] text-[#FAF8F5] text-xs font-serif hover:bg-[#3D3732] transition-colors disabled:opacity-50 shadow-sm"
+                    className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full bg-[#2C2A29] text-[#FAF8F5] text-xs font-serif hover:bg-[#3D3732] transition-colors disabled:opacity-50 shadow-sm cursor-pointer"
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                     <span>
                       {actionLoadingId === item.id ? "Publishing..." : "Approve & Publish"}
                     </span>
@@ -357,7 +507,7 @@ export default function AdminShareContentPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setEditingSubmission(null)}
-              className="fixed inset-0 bg-black/30 backdrop-blur-sm"
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm"
             />
 
             <motion.div
@@ -372,7 +522,7 @@ export default function AdminShareContentPage() {
                 </h3>
                 <button
                   onClick={() => setEditingSubmission(null)}
-                  className="p-1 rounded-full bg-[#F3EFEA] text-[#5A5654] hover:text-[#1F1E1D]"
+                  className="p-1 rounded-full bg-[#F3EFEA] text-[#5A5654] hover:text-[#1F1E1D] transition-colors cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -386,11 +536,12 @@ export default function AdminShareContentPage() {
                     </label>
                     <input
                       type="text"
+                      required
                       value={editingSubmission.title || ""}
                       onChange={(e) =>
                         setEditingSubmission({ ...editingSubmission, title: e.target.value })
                       }
-                      className="w-full px-3.5 py-2 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs focus:outline-none"
+                      className="w-full px-3.5 py-2 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs font-serif focus:outline-none focus:border-[#8C3A32]"
                     />
                   </div>
 
@@ -400,11 +551,12 @@ export default function AdminShareContentPage() {
                     </label>
                     <input
                       type="text"
+                      required
                       value={editingSubmission.author || ""}
                       onChange={(e) =>
                         setEditingSubmission({ ...editingSubmission, author: e.target.value })
                       }
-                      className="w-full px-3.5 py-2 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs focus:outline-none"
+                      className="w-full px-3.5 py-2 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs font-serif focus:outline-none focus:border-[#8C3A32]"
                     />
                   </div>
                 </div>
@@ -419,7 +571,7 @@ export default function AdminShareContentPage() {
                       onChange={(e) =>
                         setEditingSubmission({ ...editingSubmission, category: e.target.value })
                       }
-                      className="w-full px-3.5 py-2 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs focus:outline-none"
+                      className="w-full px-3.5 py-2 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs font-serif focus:outline-none focus:border-[#8C3A32]"
                     >
                       <option value="Reflections">Reflections</option>
                       <option value="Free Verse">Free Verse</option>
@@ -441,7 +593,8 @@ export default function AdminShareContentPage() {
                       onChange={(e) =>
                         setEditingSubmission({ ...editingSubmission, instagram: e.target.value })
                       }
-                      className="w-full px-3.5 py-2 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs focus:outline-none"
+                      placeholder="username"
+                      className="w-full px-3.5 py-2 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs font-serif focus:outline-none focus:border-[#8C3A32]"
                     />
                   </div>
 
@@ -455,7 +608,8 @@ export default function AdminShareContentPage() {
                       onChange={(e) =>
                         setEditingSubmission({ ...editingSubmission, email: e.target.value })
                       }
-                      className="w-full px-3.5 py-2 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs focus:outline-none"
+                      placeholder="author@example.com"
+                      className="w-full px-3.5 py-2 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs font-serif focus:outline-none focus:border-[#8C3A32]"
                     />
                   </div>
                 </div>
@@ -465,12 +619,13 @@ export default function AdminShareContentPage() {
                     Body / Stanza Content
                   </label>
                   <textarea
+                    required
                     rows={8}
                     value={editingSubmission.body || ""}
                     onChange={(e) =>
                       setEditingSubmission({ ...editingSubmission, body: e.target.value })
                     }
-                    className="w-full p-3.5 rounded-2xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs font-serif focus:outline-none whitespace-pre-wrap leading-relaxed"
+                    className="w-full p-3.5 rounded-2xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs font-serif focus:outline-none focus:border-[#8C3A32] whitespace-pre-wrap leading-relaxed"
                   />
                 </div>
 
@@ -478,13 +633,13 @@ export default function AdminShareContentPage() {
                   <button
                     type="button"
                     onClick={() => setEditingSubmission(null)}
-                    className="px-4 py-2 rounded-full border border-[#E3D9CC] text-xs font-serif hover:bg-[#E8E2D9]"
+                    className="px-4 py-2 rounded-full border border-[#E3D9CC] text-xs font-serif hover:bg-[#E8E2D9] transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 rounded-full bg-[#2C2A29] text-[#FAF8F5] text-xs font-serif hover:bg-[#3D3732] flex items-center gap-1.5"
+                    className="px-5 py-2 rounded-full bg-[#2C2A29] text-[#FAF8F5] text-xs font-serif hover:bg-[#3D3732] flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <Send className="w-3.5 h-3.5" />
                     <span>Save Changes</span>

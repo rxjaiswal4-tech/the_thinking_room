@@ -149,19 +149,19 @@ export default function AdminFeedPage() {
             <Link
               href="/admin/dashboard"
               aria-label="Back to Dashboard Feed"
-              className="inline-flex items-center gap-1.5 text-xs font-serif text-[#000000] hover:text-[#2C2A29] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2C2A29] rounded transition-colors py-1"
+              className="inline-flex items-center gap-1.5 text-xs font-serif text-[#2C2A29] hover:text-[#8C3A32] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2C2A29] rounded transition-colors py-1"
             >
-              <ArrowLeft className="w-4.5 h-4.5" aria-hidden="true" />
+              <ArrowLeft className="w-4 h-4" aria-hidden="true" />
               <span>Back to Dashboard Feed</span>
             </Link>
 
-            <button
-              type="button"
-              onClick={() => router.push("/")}
-              className="text-xs font-serif text-[#131211] hover:text-[#2C2A29]  focus-visible:ring-[#2C2A29] rounded transition-colors py-1"
+            <Link
+              href="/"
+              target="_blank"
+              className="text-xs font-serif text-[#7C7775] hover:text-[#2C2A29] underline focus-visible:ring-[#2C2A29] rounded transition-colors py-1"
             >
               View Live Feed &rarr;
-            </button>
+            </Link>
           </div>
         </header>
 

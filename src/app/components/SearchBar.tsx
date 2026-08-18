@@ -3,15 +3,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, X, Loader2, Sparkles } from "lucide-react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabaseClient";
 import { HighlightText } from "./HighlightsText";
-// Safe initialization of Supabase client outside component scope
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-const supabase =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : null;
 
 interface SearchBarProps {
   placeholder?: string;
@@ -82,7 +75,7 @@ export function SearchBar({
                 (item) => item.title || item.author || item.category
               )
             )
-          );
+          ).filter(Boolean);
           setSuggestions(matches);
         } else {
           setSuggestions([]);
@@ -156,7 +149,7 @@ export function SearchBar({
           <button
             type="button"
             onClick={handleClear}
-            className="absolute right-3 p-0.5 text-[#8C827A] hover:text-[#2C2A29]"
+            className="absolute right-3 p-0.5 text-[#8C827A] hover:text-[#2C2A29] cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -180,7 +173,7 @@ export function SearchBar({
                 setQuery(suggestion);
                 handleSearchSubmit(suggestion);
               }}
-              className="w-full text-left px-3 py-2 text-xs font-serif text-[#2C2723] hover:bg-[#F3EFEA] rounded-xl flex items-center gap-2 transition-colors"
+              className="w-full text-left px-3 py-2 text-xs font-serif text-[#2C2723] hover:bg-[#F3EFEA] rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
             >
               <Sparkles className="w-3 h-3 text-[#8C827A] shrink-0" />
               <span className="truncate">

@@ -142,40 +142,36 @@ export function Footer() {
           <div>
             <h4 className="font-serif font-medium text-[#1F1E1D] mb-3.5 sm:mb-4">Explore</h4>
             <ul className="space-y-2.5 text-[#5A5654]">
-              <li><Link href="/explore" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Daily Poem</Link></li>
-              <li><Link href="/collections" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Featured Chapbooks</Link></li>
-              <li><Link href="/topics" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Topics & Forms</Link></li>
-              <li><Link href="/audio" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Spoken Word</Link></li>
+              <li><Link href="/feed" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Daily Poem Feed</Link></li>
+              <li><Link href="/categories" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Themes & Collections</Link></li>
+              <li><Link href="/" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Thinking Room Sanctuary</Link></li>
             </ul>
           </div>
 
           <div>
             <h4 className="font-serif font-medium text-[#1F1E1D] mb-3.5 sm:mb-4">Writers</h4>
             <ul className="space-y-2.5 text-[#5A5654]">
-              <li><Link href="/editor" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Distraction-Free Editor</Link></li>
-              <li><Link href="/guide" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Formatting Guide</Link></li>
-              <li><Link href="/publish" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Publishing Chapbooks</Link></li>
-              <li><Link href="/guidelines" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Writer Guidelines</Link></li>
+              <li><Link href="/share" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Share Stanza & Thoughts</Link></li>
+              <li><Link href="/categories" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Anthology Categories</Link></li>
+              <li><Link href="/feed" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Community Feed</Link></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-serif font-medium text-[#1F1E1D] mb-3.5 sm:mb-4">Editorial Desk</h4>
+            <ul className="space-y-2.5 text-[#5A5654]">
+              <li><Link href="/login" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Admin Portal</Link></li>
+              <li><Link href="/admin/dashboard" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Editorial Dashboard</Link></li>
+              <li><Link href="/admin/dashboard/sharecontent" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Review Submissions</Link></li>
             </ul>
           </div>
 
           <div>
             <h4 className="font-serif font-medium text-[#1F1E1D] mb-3.5 sm:mb-4">Platform</h4>
             <ul className="space-y-2.5 text-[#5A5654]">
-              <li><Link href="/about" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">About Stanza</Link></li>
-              <li><Link href="/manifesto" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Our Manifesto</Link></li>
-              <li><Link href="/pricing" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Membership</Link></li>
-              <li><Link href="/changelog" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Changelog</Link></li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="font-serif font-medium text-[#1F1E1D] mb-3.5 sm:mb-4">Legal</h4>
-            <ul className="space-y-2.5 text-[#5A5654]">
-              <li><Link href="/privacy" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Privacy Policy</Link></li>
-              <li><Link href="/terms" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Terms of Service</Link></li>
-              <li><Link href="/copyright" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Copyright & IP</Link></li>
-              <li><Link href="/contact" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Contact Us</Link></li>
+              <li><Link href="/" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">About Stanza</Link></li>
+              <li><Link href="/feed" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Live Stream</Link></li>
+              <li><a href="mailto:contact@stanza.verse" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Contact Editorial</a></li>
             </ul>
           </div>
         </motion.div>
