@@ -157,14 +157,14 @@ export function Footer() {
             </ul>
           </div>
 
-          <div>
+          {/* <div>
             <h4 className="font-serif font-medium text-[#1F1E1D] mb-3.5 sm:mb-4">Editorial Desk</h4>
             <ul className="space-y-2.5 text-[#5A5654]">
               <li><Link href="/login" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Admin Portal</Link></li>
               <li><Link href="/admin/dashboard" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Editorial Dashboard</Link></li>
               <li><Link href="/admin/dashboard/sharecontent" className="hover:text-[#2C2A29] transition-colors py-1 inline-block">Review Submissions</Link></li>
             </ul>
-          </div>
+          </div>*/}
 
           <div>
             <h4 className="font-serif font-medium text-[#1F1E1D] mb-3.5 sm:mb-4">Platform</h4>
