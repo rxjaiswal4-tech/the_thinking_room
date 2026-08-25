@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Lock,
@@ -14,16 +14,12 @@ import {
   EyeOff,
   Feather,
 } from "lucide-react";
-import { createBrowserClient } from "@supabase/ssr";
+import { supabase } from "@/lib/supabaseClient";
 
-export default function AdminLoginPage() {
+function LoginContent() {
   const router = useRouter();
-
-  // Initialize client with SSR cookie support
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirectTo") || "/admin/dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,8 +34,8 @@ export default function AdminLoginPage() {
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: email.trim(),
+        password: password.trim(),
       });
 
       if (error) throw error;
@@ -47,7 +43,7 @@ export default function AdminLoginPage() {
       if (data?.session) {
         // Refresh server components and cookies before navigating
         router.refresh();
-        router.push("/admin/dashboard");
+        router.push(redirectTo);
       }
     } catch (err: any) {
       console.error("Login error:", err);
@@ -58,7 +54,7 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#2C2A29] font-sans flex items-center justify-center p-4 sm:p-6 overflow-hidden relative">
+    <div className="min-h-screen bg-[#FAF7F2] text-[#2C2A29] font-sans flex items-center justify-center p-4 sm:p-6 overflow-hidden relative selection:bg-[#E8E2D9]">
       {/* Background Animated Ambient Lights */}
       <motion.div
         initial={{ opacity: 0, scale: 0.8 }}
@@ -186,7 +182,7 @@ export default function AdminLoginPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#7C7775] hover:text-[#2C2A29] transition-colors"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#7C7775] hover:text-[#2C2A29] transition-colors cursor-pointer"
               >
                 {showPassword ? (
                   <EyeOff className="w-4 h-4" />
@@ -207,7 +203,7 @@ export default function AdminLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 px-5 rounded-2xl bg-[#2C2A29] text-[#FAF8F5] text-xs font-serif hover:bg-[#3D3732] active:scale-[0.98] transition-all shadow-md disabled:opacity-60 flex items-center justify-center gap-2 group relative overflow-hidden"
+              className="w-full py-3 px-5 rounded-2xl bg-[#2C2A29] text-[#FAF8F5] text-xs font-serif hover:bg-[#3D3732] active:scale-[0.98] transition-all shadow-md disabled:opacity-60 flex items-center justify-center gap-2 group relative overflow-hidden cursor-pointer"
             >
               {loading ? (
                 <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -234,5 +230,13 @@ export default function AdminLoginPage() {
         </motion.div>
       </motion.div>
     </div>
+  );
+}
+
+export default function AdminLoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#FAF7F2]" />}>
+      <LoginContent />
+    </Suspense>
   );
 }

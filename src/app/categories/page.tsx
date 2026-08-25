@@ -35,19 +35,21 @@ export default function CategoriesPage() {
       try {
         let query = supabase
           .from("poems")
-          .select("*")
-          .order("updated_at", { ascending: false, nullsFirst: false })
-          .order("created_at", { ascending: false });
+          .select("*");
 
         if (selectedCategory) {
           query = query.ilike("category", selectedCategory);
         }
 
-        const { data, error } = await query;
+        let { data, error } = await query.order("created_at", { ascending: false });
 
         if (error) {
-          console.error("Error fetching filtered poems:", error);
-        } else if (data) {
+          // Retry without order
+          const fallback = await query;
+          data = fallback.data;
+        }
+
+        if (data) {
           setPoems(data as Poem[]);
         }
       } catch (err) {
@@ -108,7 +110,7 @@ export default function CategoriesPage() {
           isCollapsed ? "lg:pl-20" : "lg:pl-72"
         }`}
       >
-        <div className="max-w-5xl mx-auto px-4 sm:px-8 pt-12 pb-13 space-y-12">
+        <div className="max-w-5xl mx-auto px-4 sm:px-8 pt-12 pb-12 space-y-12">
           <section className="bg-[#FAF7F2]">
             <Suspense fallback={<div className="h-12 bg-[#EAE5DC] rounded animate-pulse" />}>
               <CategoriesMenu

@@ -44,17 +44,21 @@ function LandingContent() {
       }
 
       try {
-        const { data, error } = await supabase
+        let result = await supabase
           .from("poems")
           .select("*")
-          .order("updated_at", { ascending: false, nullsFirst: false })
           .order("created_at", { ascending: false })
           .limit(3);
 
-        if (error) {
-          console.error("Error fetching landing poems:", error);
-        } else if (data) {
-          setPoems(data as Poem[]);
+        if (result.error) {
+          result = await supabase
+            .from("poems")
+            .select("*")
+            .limit(3);
+        }
+
+        if (result.data) {
+          setPoems(result.data as Poem[]);
         }
       } catch (err) {
         console.error("Fetch error:", err);
@@ -157,7 +161,7 @@ function LandingContent() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.2 }}
-              className="-mt-1 text-sm sm:text-base text-[#5A5654] leading-relaxed max-w-1xl mx-auto font-sans font-light"
+              className="-mt-1 text-sm sm:text-base text-[#5A5654] leading-relaxed max-w-xl mx-auto font-sans font-light"
             >
               Welcome to a quiet digital atelier curated for poets, storytellers,
               and thinkers. Explore original verse, deep narrative prose, and

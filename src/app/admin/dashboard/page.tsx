@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2,
@@ -24,24 +25,27 @@ import {
   Rss,
   Share2,
   ArrowRight,
+  LogOut,
+  ShieldCheck,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
 interface Submission {
   id: string;
-  created_at: string;
+  created_at?: string;
   author: string;
-  instagram: string;
-  email: string;
+  instagram?: string;
+  email?: string;
   title: string;
   category: string;
   body: string;
-  is_published: boolean;
+  is_published?: boolean;
 }
 
 interface Poem {
   id: string;
   created_at?: string;
+  updated_at?: string;
   title: string;
   author: string;
   category: string;
@@ -66,9 +70,11 @@ const InstagramIcon = ({ className = "w-3.5 h-3.5" }: { className?: string }) =>
 );
 
 export default function AdminDashboardPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"pending" | "published">("pending");
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [publishedPoems, setPublishedPoems] = useState<Poem[]>([]);
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
   
   const [loading, setLoading] = useState(true);
   const [editingSubmission, setEditingSubmission] = useState<Submission | null>(null);
@@ -78,40 +84,111 @@ export default function AdminDashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
 
-  // Fetch all pending submissions and published poems
+  // Fetch all pending submissions and published poems safely and independently
   const fetchData = async () => {
     setLoading(true);
     setErrorDetails(null);
 
-    if (!supabase) {
-      setErrorDetails("Supabase client is not initialized.");
-      setLoading(false);
-      return;
+    // Get current user session
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      if (authData?.user?.email) {
+        setCurrentUser(authData.user.email);
+      }
+    } catch {
+      // ignore
     }
 
+    // 1. Fetch pending submissions (with client query + server API fallback)
     try {
-      // 1. Fetch pending submissions
-      const { data: subData, error: subError } = await supabase
+      let subData: any[] | null = null;
+      const { data: orderedSubs, error: orderError } = await supabase
         .from("submissions")
         .select("*")
-        .eq("is_published", false)
         .order("created_at", { ascending: false });
 
-      if (subError) throw subError;
-      setSubmissions(subData || []);
+      if (orderError) {
+        const { data: fallbackSubs, error: fallbackError } = await supabase
+          .from("submissions")
+          .select("*");
+        if (!fallbackError) {
+          subData = fallbackSubs;
+        }
+      } else {
+        subData = orderedSubs;
+      }
 
-      // 2. Fetch published poems anthology
-      const { data: poemsData, error: poemsError } = await supabase
+      // If client query returns 0 rows (e.g. RLS blocked), fetch from server API
+      if (!subData || subData.length === 0) {
+        try {
+          const res = await fetch("/api/admin/submissions");
+          if (res.ok) {
+            const json = await res.json();
+            if (json.data && json.data.length > 0) {
+              subData = json.data;
+            }
+            if (json.user && !currentUser) {
+              setCurrentUser(json.user);
+            }
+          }
+        } catch (apiErr) {
+          console.warn("API fallback in dashboard:", apiErr);
+        }
+      }
+
+      // Filter out rows that have is_published === true
+      const pending = (subData || [])
+        .filter((item: any) => item.is_published !== true)
+        .sort((a: any, b: any) => {
+          if (a.created_at && b.created_at) {
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          }
+          return 0;
+        });
+
+      setSubmissions(pending);
+    } catch (err: any) {
+      console.error("Submissions load error:", err);
+      setErrorDetails((prev) =>
+        prev
+          ? `${prev} | Submissions: ${err.message}`
+          : `Submissions: ${err.message}`
+      );
+    }
+
+    // 2. Fetch published poems anthology (with fallback queries)
+    try {
+      let poemsData: any[] | null = null;
+      const { data: orderedPoems, error: orderPoemsError } = await supabase
         .from("poems")
         .select("*")
-        .order("id", { ascending: false });
+        .order("created_at", { ascending: false });
 
-      if (poemsError) throw poemsError;
-      setPublishedPoems(poemsData || []);
+      if (orderPoemsError) {
+        const { data: fallbackPoems, error: fallbackPoemsError } = await supabase
+          .from("poems")
+          .select("*");
+        if (fallbackPoemsError) throw fallbackPoemsError;
+        poemsData = fallbackPoems;
+      } else {
+        poemsData = orderedPoems;
+      }
+
+      const sortedPoems = (poemsData || []).sort((a: any, b: any) => {
+        const dateA = a.updated_at || a.created_at;
+        const dateB = b.updated_at || b.created_at;
+        if (dateA && dateB) {
+          return new Date(dateB).getTime() - new Date(dateA).getTime();
+        }
+        return 0;
+      });
+
+      setPublishedPoems(sortedPoems);
     } catch (err: any) {
-      console.error("Dashboard data load error:", err);
-      setErrorDetails(err.message || "Failed to sync with Supabase database.");
-      showToast("Error loading portal data");
+      console.error("Poems load error:", err);
+      setErrorDetails((prev) =>
+        prev ? `${prev} | Poems: ${err.message}` : `Poems: ${err.message}`
+      );
     } finally {
       setLoading(false);
     }
@@ -121,25 +198,32 @@ export default function AdminDashboardPage() {
     fetchData();
   }, []);
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.refresh();
+    router.push("/login");
+  };
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+    setTimeout(() => setToastMessage(null), 3500);
   };
 
   // Publish workflow: Inserts into 'poems' and removes from 'submissions'
   const handlePublish = async (submission: Submission) => {
     setActionLoadingId(submission.id);
     try {
-      if (!supabase) return;
-
-      const { error: insertError } = await supabase.from("poems").insert([
-        {
-          title: submission.title,
-          body: submission.body,
-          author: submission.author,
-          category: submission.category,
-        },
-      ]);
+      const { data: insertedData, error: insertError } = await supabase
+        .from("poems")
+        .insert([
+          {
+            title: submission.title,
+            body: submission.body,
+            author: submission.author || "Anonymous",
+            category: submission.category || "General",
+          },
+        ])
+        .select();
 
       if (insertError) throw insertError;
 
@@ -148,20 +232,26 @@ export default function AdminDashboardPage() {
         .delete()
         .eq("id", submission.id);
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.warn("Soft updating submission:", deleteError);
+        await supabase
+          .from("submissions")
+          .update({ is_published: true })
+          .eq("id", submission.id);
+      }
 
       setSubmissions((prev) => prev.filter((item) => item.id !== submission.id));
-      setPublishedPoems((prev) => [
-        {
-          id: submission.id,
-          title: submission.title,
-          body: submission.body,
-          author: submission.author,
-          category: submission.category,
-        },
-        ...prev,
-      ]);
 
+      const newPoem: Poem = (insertedData && insertedData[0]) || {
+        id: submission.id,
+        title: submission.title,
+        body: submission.body,
+        author: submission.author || "Anonymous",
+        category: submission.category || "General",
+        created_at: new Date().toISOString(),
+      };
+
+      setPublishedPoems((prev) => [newPoem, ...prev]);
       showToast(`"${submission.title}" published successfully!`);
     } catch (err: any) {
       console.error("Publish error:", err);
@@ -177,8 +267,6 @@ export default function AdminDashboardPage() {
 
     setActionLoadingId(id);
     try {
-      if (!supabase) return;
-
       const { error } = await supabase.from("submissions").delete().eq("id", id);
       if (error) throw error;
 
@@ -192,10 +280,29 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // Delete a published poem from live anthology
+  const handleDeletePublishedPoem = async (id: string, title: string) => {
+    if (!confirm(`Are you sure you want to delete "${title}" from the live published anthology?`)) return;
+
+    setActionLoadingId(id);
+    try {
+      const { error } = await supabase.from("poems").delete().eq("id", id);
+      if (error) throw error;
+
+      setPublishedPoems((prev) => prev.filter((item) => item.id !== id));
+      showToast(`"${title}" removed from published archive.`);
+    } catch (err: any) {
+      console.error("Delete poem error:", err);
+      showToast(err.message || "Failed to delete poem.");
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
   // Save changes via modal
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingSubmission || !supabase) return;
+    if (!editingSubmission) return;
 
     try {
       const { error } = await supabase
@@ -205,8 +312,8 @@ export default function AdminDashboardPage() {
           author: editingSubmission.author,
           category: editingSubmission.category,
           body: editingSubmission.body,
-          email: editingSubmission.email,
-          instagram: editingSubmission.instagram,
+          email: editingSubmission.email || null,
+          instagram: editingSubmission.instagram || null,
         })
         .eq("id", editingSubmission.id);
 
@@ -230,7 +337,9 @@ export default function AdminDashboardPage() {
       const matchesSearch =
         item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.author?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.body?.toLowerCase().includes(searchQuery.toLowerCase());
+        item.body?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.email && item.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (item.instagram && item.instagram.toLowerCase().includes(searchQuery.toLowerCase()));
 
       const matchesCategory =
         selectedCategory === "All" || item.category === selectedCategory;
@@ -254,7 +363,7 @@ export default function AdminDashboardPage() {
   }, [publishedPoems, searchQuery, selectedCategory]);
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#2C2A29] p-4 sm:p-8 lg:p-12 font-sans relative">
+    <div className="min-h-screen bg-[#FAF7F2] text-[#2C2A29] p-4 sm:p-8 lg:p-12 font-sans relative selection:bg-[#E8E2D9]">
       {/* Toast Notification */}
       <AnimatePresence>
         {toastMessage && (
@@ -264,7 +373,7 @@ export default function AdminDashboardPage() {
             exit={{ opacity: 0, y: -20 }}
             className="fixed top-6 right-6 z-50 bg-[#2C2A29] text-[#FAF8F5] px-5 py-3 rounded-2xl text-xs font-serif shadow-xl border border-[#3D3732] flex items-center gap-2"
           >
-            <Check className="w-4 h-4 text-emerald-400" />
+            <Check className="w-4 h-4 text-emerald-400 shrink-0" />
             <span>{toastMessage}</span>
           </motion.div>
         )}
@@ -290,6 +399,13 @@ export default function AdminDashboardPage() {
 
           {/* Header Action Buttons */}
           <div className="flex flex-wrap items-center gap-3">
+            {currentUser && (
+              <div className="px-3 py-1.5 rounded-xl bg-[#F3EFEA] border border-[#E3D9CC] text-[11px] font-mono text-[#5A5654] flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span>{currentUser}</span>
+              </div>
+            )}
+
             <Link
               href="/admin/dashboard/feed"
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#F3EFEA] border border-[#E3D9CC] text-xs font-serif hover:bg-[#E8E2D9] transition-all shadow-sm active:scale-95 text-[#2C2A29]"
@@ -308,10 +424,10 @@ export default function AdminDashboardPage() {
 
             <button
               onClick={fetchData}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#F3EFEA] border border-[#E3D9CC] text-xs font-serif hover:bg-[#E8E2D9] transition-all shadow-sm active:scale-95 text-[#2C2A29]"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#F3EFEA] border border-[#E3D9CC] text-xs font-serif hover:bg-[#E8E2D9] transition-all shadow-sm active:scale-95 text-[#2C2A29] cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-[#8C3A32]" : ""}`} />
-              <span>Sync</span>
+              <span>Sync Portal</span>
             </button>
 
             <Link
@@ -322,16 +438,25 @@ export default function AdminDashboardPage() {
               <span>View Site</span>
               <ExternalLink className="w-3.5 h-3.5 opacity-70" />
             </Link>
+
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl border border-red-200 text-red-700 text-xs font-serif hover:bg-red-50 transition-colors cursor-pointer"
+              title="Sign Out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Exit</span>
+            </button>
           </div>
         </div>
 
-        {/* Database Error State */}
+        {/* Database Notice State */}
         {errorDetails && (
-          <div className="p-4 bg-red-50/80 border border-red-200 rounded-2xl text-xs text-red-900 flex items-start gap-3">
-            <ShieldAlert className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+          <div className="p-4 bg-amber-50/90 border border-amber-200 rounded-2xl text-xs text-amber-900 flex items-start gap-3">
+            <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold">Database Connection Warning</p>
-              <p className="font-mono text-[11px] text-red-700 mt-0.5">{errorDetails}</p>
+              <p className="font-semibold">Supabase Data Sync Notice</p>
+              <p className="font-mono text-[11px] text-amber-800 mt-0.5">{errorDetails}</p>
             </div>
           </div>
         )}
@@ -348,7 +473,7 @@ export default function AdminDashboardPage() {
               </div>
               <div>
                 <h3 className="font-serif text-sm font-semibold text-[#1F1E1D]">Go to Dashboard Feed</h3>
-                <p className="text-xs font-serif text-[#7C7775]">View live stream and activity updates</p>
+                <p className="text-xs font-serif text-[#7C7775]">Publish new poems directly & manage live feed</p>
               </div>
             </div>
             <ArrowRight className="w-4 h-4 text-[#7C7775] group-hover:translate-x-1 transition-transform" />
@@ -363,8 +488,8 @@ export default function AdminDashboardPage() {
                 <Share2 className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-serif text-sm font-semibold text-[#1F1E1D]">Go to Share Content</h3>
-                <p className="text-xs font-serif text-[#7C7775]">Publish and distribute selected poems</p>
+                <h3 className="font-serif text-sm font-semibold text-[#1F1E1D]">Go to Editorial Share Content</h3>
+                <p className="text-xs font-serif text-[#7C7775]">Review, edit, and publish community submissions</p>
               </div>
             </div>
             <ArrowRight className="w-4 h-4 text-[#7C7775] group-hover:translate-x-1 transition-transform" />
@@ -379,7 +504,7 @@ export default function AdminDashboardPage() {
               <Inbox className="w-4 h-4 text-[#8C3A32]" />
             </div>
             <div className="font-serif text-3xl text-[#1F1E1D]">{submissions.length}</div>
-            <p className="text-[11px] font-serif text-[#7C7775]">Awaiting editor approval</p>
+            <p className="text-[11px] font-serif text-[#7C7775]">Awaiting editor review</p>
           </div>
 
           <div className="bg-[#FAF8F5] border border-[#E3D9CC] rounded-3xl p-6 shadow-[0_4px_20px_rgba(44,42,41,0.02)] space-y-2">
@@ -388,18 +513,18 @@ export default function AdminDashboardPage() {
               <BookOpen className="w-4 h-4 text-emerald-700" />
             </div>
             <div className="font-serif text-3xl text-[#1F1E1D]">{publishedPoems.length}</div>
-            <p className="text-[11px] font-serif text-[#7C7775]">Active in live anthology</p>
+            <p className="text-[11px] font-serif text-[#7C7775]">Live in anthology stream</p>
           </div>
 
           <div className="bg-[#FAF8F5] border border-[#E3D9CC] rounded-3xl p-6 shadow-[0_4px_20px_rgba(44,42,41,0.02)] space-y-2">
             <div className="flex items-center justify-between text-[#7C7775]">
-              <span className="text-xs font-serif">Total Activity</span>
+              <span className="text-xs font-serif">Total Library</span>
               <BarChart3 className="w-4 h-4 text-[#7C7775]" />
             </div>
             <div className="font-serif text-3xl text-[#1F1E1D]">
               {submissions.length + publishedPoems.length}
             </div>
-            <p className="text-[11px] font-serif text-[#7C7775]">Total records processed</p>
+            <p className="text-[11px] font-serif text-[#7C7775]">Total records in system</p>
           </div>
         </div>
 
@@ -409,7 +534,7 @@ export default function AdminDashboardPage() {
           <div className="flex items-center gap-2 bg-[#F3EFEA] p-1.5 rounded-2xl border border-[#E3D9CC]/80 self-start">
             <button
               onClick={() => setActiveTab("pending")}
-              className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-serif transition-all ${
+              className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-serif transition-all cursor-pointer ${
                 activeTab === "pending"
                   ? "bg-[#2C2A29] text-[#FAF8F5] shadow-sm"
                   : "text-[#7C7775] hover:text-[#2C2A29]"
@@ -420,7 +545,7 @@ export default function AdminDashboardPage() {
             </button>
             <button
               onClick={() => setActiveTab("published")}
-              className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-serif transition-all ${
+              className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-serif transition-all cursor-pointer ${
                 activeTab === "published"
                   ? "bg-[#2C2A29] text-[#FAF8F5] shadow-sm"
                   : "text-[#7C7775] hover:text-[#2C2A29]"
@@ -476,9 +601,11 @@ export default function AdminDashboardPage() {
             ) : filteredSubmissions.length === 0 ? (
               <div className="text-center py-20 bg-[#FAF8F5] border border-[#E3D9CC] rounded-3xl space-y-3">
                 <div className="p-3 bg-[#F3EFEA] rounded-full w-fit mx-auto text-[#7C7775]">
-                  <CheckCircle2 className="w-6 h-6" />
+                  <CheckCircle2 className="w-6 h-6 text-emerald-600" />
                 </div>
-                <p className="font-serif text-base text-[#1F1E1D]">Desk is Clear!</p>
+                <p className="font-serif text-base text-[#1F1E1D]">
+                  {searchQuery ? "No matching submissions found" : "Desk is Clear!"}
+                </p>
                 <p className="font-serif text-xs text-[#7C7775] max-w-sm mx-auto">
                   {searchQuery
                     ? "No pending submissions matched your search query."
@@ -499,7 +626,7 @@ export default function AdminDashboardPage() {
                     {/* Meta Bar */}
                     <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-serif border-b border-[#E3D9CC]/60 pb-4">
                       <span className="px-3 py-1 rounded-full bg-[#F3EFEA] border border-[#E3D9CC] text-[#8C3A32] font-mono text-[10px] uppercase tracking-wider font-semibold">
-                        {item.category}
+                        {item.category || "General"}
                       </span>
                       <div className="flex flex-wrap items-center gap-4 text-[#7C7775]">
                         {item.email && (
@@ -520,7 +647,7 @@ export default function AdminDashboardPage() {
                             ? new Date(item.created_at).toLocaleDateString(undefined, {
                                 dateStyle: "medium",
                               })
-                            : "N/A"}
+                            : "Recent"}
                         </span>
                       </div>
                     </div>
@@ -532,7 +659,7 @@ export default function AdminDashboardPage() {
                       </h2>
                       <p className="text-xs font-serif text-[#7C7775] flex items-center gap-1.5">
                         <User className="w-3.5 h-3.5 text-[#8C3A32]" />
-                        <span>Submitted by <strong className="text-[#2C2A29]">{item.author}</strong></span>
+                        <span>Submitted by <strong className="text-[#2C2A29]">{item.author || "Anonymous"}</strong></span>
                       </p>
                     </div>
 
@@ -548,7 +675,7 @@ export default function AdminDashboardPage() {
                       <button
                         onClick={() => handleDeleteSubmission(item.id)}
                         disabled={actionLoadingId === item.id}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-red-200 text-red-700 text-xs font-serif hover:bg-red-50 transition-colors disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-red-200 text-red-700 text-xs font-serif hover:bg-red-50 transition-colors disabled:opacity-50 cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                         <span>Reject</span>
@@ -557,7 +684,7 @@ export default function AdminDashboardPage() {
                       <button
                         onClick={() => setEditingSubmission(item)}
                         disabled={actionLoadingId === item.id}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#F3EFEA] border border-[#E3D9CC] text-[#2C2A29] text-xs font-serif hover:bg-[#E8E2D9] transition-colors disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#F3EFEA] border border-[#E3D9CC] text-[#2C2A29] text-xs font-serif hover:bg-[#E8E2D9] transition-colors disabled:opacity-50 cursor-pointer"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                         <span>Edit</span>
@@ -566,7 +693,7 @@ export default function AdminDashboardPage() {
                       <button
                         onClick={() => handlePublish(item)}
                         disabled={actionLoadingId === item.id}
-                        className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full bg-[#2C2A29] text-[#FAF8F5] text-xs font-serif hover:bg-[#3D3732] transition-colors disabled:opacity-50 shadow-sm"
+                        className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full bg-[#2C2A29] text-[#FAF8F5] text-xs font-serif hover:bg-[#3D3732] transition-colors disabled:opacity-50 shadow-sm cursor-pointer"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                         <span>
@@ -612,23 +739,48 @@ export default function AdminDashboardPage() {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="px-3 py-0.5 rounded-full bg-[#E8E2D9] text-[#8C3A32] font-mono text-[10px] uppercase tracking-wider">
-                          {poem.category}
+                          {poem.category || "General"}
                         </span>
-                        <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                          <Check className="w-3 h-3" /> Live
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                            <Check className="w-3 h-3" /> Live
+                          </span>
+                          <button
+                            onClick={() => handleDeletePublishedPoem(poem.id, poem.title)}
+                            disabled={actionLoadingId === poem.id}
+                            className="p-1 text-[#7C7775] hover:text-red-600 transition-colors cursor-pointer"
+                            title="Delete from published archive"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
 
                       <div>
                         <h3 className="font-serif text-xl text-[#1F1E1D]">{poem.title}</h3>
-                        <p className="text-xs font-serif text-[#7C7775]">By {poem.author}</p>
+                        <p className="text-xs font-serif text-[#7C7775]">By {poem.author || "Anonymous"}</p>
                       </div>
 
                       <div className="p-4 rounded-2xl bg-[#F3EFEA]/40 border border-[#E3D9CC]/50">
-                        <p className="font-serif text-xs text-[#2C2A29] leading-relaxed line-clamp-4 italic">
+                        <p className="font-serif text-xs text-[#2C2A29] leading-relaxed line-clamp-4 italic whitespace-pre-wrap">
                           {poem.body}
                         </p>
                       </div>
+                    </div>
+
+                    <div className="pt-2 text-[11px] font-mono text-[#8C827A] flex items-center justify-between border-t border-[#E3D9CC]/40">
+                      <span>
+                        {poem.created_at
+                          ? new Date(poem.created_at).toLocaleDateString(undefined, { dateStyle: "medium" })
+                          : "Published"}
+                      </span>
+                      <Link
+                        href={`/feed?id=${poem.id}`}
+                        target="_blank"
+                        className="hover:underline flex items-center gap-1 text-[#8C3A32]"
+                      >
+                        View in Feed <ArrowRight className="w-3 h-3" />
+                      </Link>
                     </div>
                   </article>
                 ))}
@@ -658,11 +810,11 @@ export default function AdminDashboardPage() {
             >
               <div className="flex items-center justify-between pb-4 border-b border-[#E3D9CC]">
                 <h3 className="font-serif text-lg text-[#1F1E1D]">
-                  Edit Submission
+                  Edit Submission Content
                 </h3>
                 <button
                   onClick={() => setEditingSubmission(null)}
-                  className="p-1 rounded-full bg-[#F3EFEA] text-[#5A5654] hover:text-[#1F1E1D] transition-colors"
+                  className="p-1 rounded-full bg-[#F3EFEA] text-[#5A5654] hover:text-[#1F1E1D] transition-colors cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -676,11 +828,12 @@ export default function AdminDashboardPage() {
                     </label>
                     <input
                       type="text"
+                      required
                       value={editingSubmission.title || ""}
                       onChange={(e) =>
                         setEditingSubmission({ ...editingSubmission, title: e.target.value })
                       }
-                      className="w-full px-3.5 py-2 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs focus:outline-none focus:border-[#8C3A32]"
+                      className="w-full px-3.5 py-2 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs font-serif focus:outline-none focus:border-[#8C3A32]"
                     />
                   </div>
 
@@ -690,11 +843,12 @@ export default function AdminDashboardPage() {
                     </label>
                     <input
                       type="text"
+                      required
                       value={editingSubmission.author || ""}
                       onChange={(e) =>
                         setEditingSubmission({ ...editingSubmission, author: e.target.value })
                       }
-                      className="w-full px-3.5 py-2 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs focus:outline-none focus:border-[#8C3A32]"
+                      className="w-full px-3.5 py-2 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs font-serif focus:outline-none focus:border-[#8C3A32]"
                     />
                   </div>
                 </div>
@@ -709,7 +863,7 @@ export default function AdminDashboardPage() {
                       onChange={(e) =>
                         setEditingSubmission({ ...editingSubmission, category: e.target.value })
                       }
-                      className="w-full px-3.5 py-2 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs focus:outline-none focus:border-[#8C3A32]"
+                      className="w-full px-3.5 py-2 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs font-serif focus:outline-none focus:border-[#8C3A32]"
                     >
                       <option value="Reflections">Reflections</option>
                       <option value="Free Verse">Free Verse</option>
@@ -731,7 +885,8 @@ export default function AdminDashboardPage() {
                       onChange={(e) =>
                         setEditingSubmission({ ...editingSubmission, instagram: e.target.value })
                       }
-                      className="w-full px-3.5 py-2 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs focus:outline-none focus:border-[#8C3A32]"
+                      placeholder="username"
+                      className="w-full px-3.5 py-2 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs font-serif focus:outline-none focus:border-[#8C3A32]"
                     />
                   </div>
 
@@ -745,7 +900,8 @@ export default function AdminDashboardPage() {
                       onChange={(e) =>
                         setEditingSubmission({ ...editingSubmission, email: e.target.value })
                       }
-                      className="w-full px-3.5 py-2 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs focus:outline-none focus:border-[#8C3A32]"
+                      placeholder="author@example.com"
+                      className="w-full px-3.5 py-2 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs font-serif focus:outline-none focus:border-[#8C3A32]"
                     />
                   </div>
                 </div>
@@ -755,6 +911,7 @@ export default function AdminDashboardPage() {
                     Poem Body
                   </label>
                   <textarea
+                    required
                     rows={7}
                     value={editingSubmission.body || ""}
                     onChange={(e) =>
@@ -768,13 +925,13 @@ export default function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={() => setEditingSubmission(null)}
-                    className="px-4 py-2 rounded-full border border-[#E3D9CC] text-xs font-serif hover:bg-[#E8E2D9] transition-colors"
+                    className="px-4 py-2 rounded-full border border-[#E3D9CC] text-xs font-serif hover:bg-[#E8E2D9] transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 rounded-full bg-[#2C2A29] text-[#FAF8F5] text-xs font-serif hover:bg-[#3D3732] flex items-center gap-1.5 transition-colors"
+                    className="px-5 py-2 rounded-full bg-[#2C2A29] text-[#FAF8F5] text-xs font-serif hover:bg-[#3D3732] flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <Send className="w-3.5 h-3.5" />
                     <span>Save Changes</span>

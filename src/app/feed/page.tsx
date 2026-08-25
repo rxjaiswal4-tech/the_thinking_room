@@ -3,16 +3,8 @@
 import React, { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Share2, Sparkles, Clock, Calendar, User, Search, X, Check } from "lucide-react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabaseClient";
 import { HighlightText } from "../components/HighlightsText";
-
-// Initialize Supabase client safely
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-const supabase =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : null;
 
 interface Poem {
   id: string;
@@ -114,10 +106,7 @@ function FeedContent() {
     }
 
     try {
-      let queryBuilder = supabase
-        .from("poems")
-        .select("*")
-        .order("created_at", { ascending: false });
+      let queryBuilder = supabase.from("poems").select("*");
 
       if (searchQuery.trim()) {
         const term = `%${searchQuery.trim()}%`;
@@ -126,11 +115,17 @@ function FeedContent() {
         );
       }
 
-      const { data, error } = await queryBuilder;
+      const { data, error } = await queryBuilder.order("created_at", { ascending: false });
 
       if (error) {
-        console.error("Supabase Error:", error);
-        setPoems(fallbackPoems);
+        // Retry without order in case created_at is not configured
+        const fallback = await queryBuilder;
+        if (fallback.error) {
+          console.error("Supabase Error:", fallback.error);
+          setPoems(fallbackPoems);
+        } else {
+          setPoems((fallback.data as Poem[]) || []);
+        }
       } else if (!data || data.length === 0) {
         setPoems([]);
       } else {
@@ -224,7 +219,7 @@ function FeedContent() {
           </div>
           <button
             onClick={handleClearSearch}
-            className="flex items-center gap-1 px-2.5 py-1 text-xs font-serif text-[#786F66] hover:text-[#2C2723] rounded-lg hover:bg-[#EAE4DA] transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1 text-xs font-serif text-[#786F66] hover:text-[#2C2723] rounded-lg hover:bg-[#EAE4DA] transition-colors cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
             <span>Clear search</span>
@@ -255,7 +250,7 @@ function FeedContent() {
             {searchQuery && (
               <button
                 onClick={handleClearSearch}
-                className="mt-2 text-xs font-serif text-[#8C827A] underline underline-offset-4 hover:text-[#2C2723]"
+                className="mt-2 text-xs font-serif text-[#8C827A] underline underline-offset-4 hover:text-[#2C2723] cursor-pointer"
               >
                 Clear query to view all posts
               </button>
@@ -293,7 +288,11 @@ function FeedContent() {
                   </div>
                   <div className="flex items-center gap-1.5 text-[#8C827A] text-[11px] font-mono">
                     <Calendar className="w-3 h-3" />
+<<<<<<< HEAD
                     <span>Published On: {formatDate(poem.created_at)}</span>
+=======
+                    <span>published On: {formatDate(poem.created_at)}</span>
+>>>>>>> bac3a751034324a054f3036e214fe46eb75ad6f1
                   </div>
                   {poem.updated_at && (
                     <div className="flex items-center gap-1.5 text-[#8C827A] text-[11px] font-mono">
@@ -307,7 +306,7 @@ function FeedContent() {
 
                 <button
                   onClick={() => handleShare(poem)}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full hover:bg-[#F3F0EA] text-[#665E56] transition-colors border border-transparent hover:border-[#E8E4DC] shrink-0"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full hover:bg-[#F3F0EA] text-[#665E56] transition-colors border border-transparent hover:border-[#E8E4DC] shrink-0 cursor-pointer"
                 >
                   {copiedId === poem.id ? (
                     <>

@@ -71,18 +71,33 @@ export default function SharePoemPage() {
       // 1. Sanitize input & validate anti-phishing rule
       const cleanData = validateAndSanitize(formData);
 
-      // 2. Direct insert into Supabase with default unpublished status (for editor review)
-      const { error } = await supabase.from("submissions").insert([
+      if (!cleanData.author || !cleanData.title || !cleanData.body) {
+        throw new Error("Please fill in all required fields (Author, Title, and Poem Body).");
+      }
+
+      // 2. Direct insert into Supabase with fallback for schemas without is_published column
+      const basePayload = {
+        author: cleanData.author,
+        instagram: cleanData.instagram || null,
+        email: cleanData.email || null,
+        title: cleanData.title,
+        category: cleanData.category || "Reflections",
+        body: cleanData.body,
+      };
+
+      // Try inserting with is_published flag first
+      let { error } = await supabase.from("submissions").insert([
         {
-          author: cleanData.author,
-          instagram: cleanData.instagram,
-          email: cleanData.email,
-          title: cleanData.title,
-          category: cleanData.category,
-          body: cleanData.body,
-          is_published: false, // Default pending editorial review
+          ...basePayload,
+          is_published: false,
         },
       ]);
+
+      // If schema doesn't have is_published column, retry cleanly without it
+      if (error && error.message?.toLowerCase().includes("is_published")) {
+        const retryResult = await supabase.from("submissions").insert([basePayload]);
+        error = retryResult.error;
+      }
 
       if (error) {
         throw new Error(error.message);
@@ -90,7 +105,7 @@ export default function SharePoemPage() {
 
       setStatusMessage({
         type: "success",
-        text: "Your submission has been sent to the editor's desk!",
+        text: "Your stanza has been received and sent to the editorial desk!",
       });
 
       // Clear form
@@ -103,9 +118,10 @@ export default function SharePoemPage() {
         body: "",
       });
     } catch (err: any) {
+      console.error("Submission error:", err);
       setStatusMessage({
         type: "error",
-        text: err.message || "Failed to submit. Please try again.",
+        text: err.message || "Failed to submit. Please check your connection and try again.",
       });
     } finally {
       setIsSubmitting(false);
@@ -113,7 +129,7 @@ export default function SharePoemPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#2C2A29] py-10 px-4 sm:px-6 lg:px-8 font-sans relative overflow-x-hidden">
+    <div className="min-h-screen bg-[#FAF7F2] text-[#2C2A29] py-10 px-4 sm:px-6 lg:px-8 font-sans relative overflow-x-hidden selection:bg-[#E8E2D9]">
       {/* Tactile Paper Texture Overlay */}
       <div
         className="fixed inset-0 pointer-events-none opacity-[0.035] z-50 mix-blend-multiply"
@@ -144,7 +160,7 @@ export default function SharePoemPage() {
             Share Your Stanza & Thoughts
           </h1>
           <p className="text-xs text-[#7C7775] mt-1 font-serif">
-            Submissions are sent to our editorial desk for review before publication.
+            Submissions are sent directly to the editorial desk for review before publication.
           </p>
         </div>
 
@@ -153,7 +169,7 @@ export default function SharePoemPage() {
           <div
             className={`p-4 rounded-2xl border text-xs font-serif flex items-center gap-3 ${
               statusMessage.type === "success"
-                ? "bg-[#EFEFD0]/50 border-[#8A9A5B] text-[#2D3B1E]"
+                ? "bg-[#EFEFD0]/70 border-[#8A9A5B] text-[#2D3B1E]"
                 : "bg-red-50 border-red-200 text-red-800"
             }`}
           >
@@ -193,12 +209,11 @@ export default function SharePoemPage() {
 
             <div>
               <label className="block text-xs font-serif text-[#5A5654] mb-1">
-                Author Instagram Handle *
+                Author Instagram Handle
               </label>
               <input
                 type="text"
                 name="instagram"
-                required
                 value={formData.instagram}
                 onChange={handleChange}
                 placeholder="e.g. elena_rostova"
@@ -209,12 +224,11 @@ export default function SharePoemPage() {
 
           <div>
             <label className="block text-xs font-serif text-[#5A5654] mb-1">
-              Author Email Address (For Editorial Contact) *
+              Author Email Address (For Editorial Contact)
             </label>
             <input
               type="email"
               name="email"
-              required
               value={formData.email}
               onChange={handleChange}
               placeholder="name@example.com"
@@ -278,9 +292,9 @@ export default function SharePoemPage() {
 
           {/* Editorial Note */}
           <div className="p-3.5 rounded-xl bg-[#F3EFEA]/70 border border-[#E3D9CC]/80 flex items-start gap-2.5">
-            <Sparkles className="w-4 h-4 text-[#7C7775] shrink-0 mt-0.5" />
+            <Sparkles className="w-4 h-4 text-[#8C3A32] shrink-0 mt-0.5" />
             <p className="text-[11px] font-serif text-[#665E56] leading-relaxed">
-              Once submitted, your poem will be sent directly to the editor's desk. Once curated, it will appear live in the Anthology Feed.
+              Once submitted, your piece is securely queued in the editorial desk. Once curated, it will appear live in the Anthology Feed.
             </p>
           </div>
 
