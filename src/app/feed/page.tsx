@@ -288,11 +288,6 @@ function FeedContent() {
                   </div>
                   <div className="flex items-center gap-1.5 text-[#8C827A] text-[11px] font-mono">
                     <Calendar className="w-3 h-3" />
-<<<<<<< HEAD
-                    <span>Published On: {formatDate(poem.created_at)}</span>
-=======
-                    <span>published On: {formatDate(poem.created_at)}</span>
->>>>>>> bac3a751034324a054f3036e214fe46eb75ad6f1
                   </div>
                   {poem.updated_at && (
                     <div className="flex items-center gap-1.5 text-[#8C827A] text-[11px] font-mono">
