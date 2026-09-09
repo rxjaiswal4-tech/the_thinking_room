@@ -286,17 +286,17 @@ function FeedContent() {
                     <User className="w-3.5 h-3.5 text-[#8C827A]" />
                     <span>Author: {poem.author || "Anonymous"}</span>
                   </div>
-                  <div className="flex items-center gap-1.5 text-[#8C827A] text-[11px] font-mono">
+                  {/* <div className="flex items-center gap-1.5 text-[#8C827A] text-[11px] font-mono">
                     <Calendar className="w-3 h-3" />
-                  </div>
-                  {/* {poem.created_at && (
+                  </div> */}
+                  {poem.created_at && (
                     <div className="flex items-center gap-1.5 text-[#8C827A] text-[11px] font-mono">
                       <Clock className="w-3 h-3" />
                       <span>
                         Last Updated: {formatDate(poem.created_at)}
                       </span>
                     </div>
-                  )} */}
+                  )}
                 </div>
 
                 <button
