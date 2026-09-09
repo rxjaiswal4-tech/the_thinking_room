@@ -27,6 +27,52 @@ const fallbackPoems: Poem[] = [
     updated_at: "2026-08-06T00:00:00Z",
   },
 ];
+/* -------------------------------------------------------------------------- */
+/*                          Background Art & Decor                             */
+/* -------------------------------------------------------------------------- */
+
+function BackgroundArt() {
+  return (
+    <div className="pointer-events-none fixed inset-0 overflow-hidden select-none z-0">
+      
+      {/* 1. Intense Sun Core */}
+      <div className="absolute top-[22%] left-[8%] sm:left-[14%] w-[160px] sm:w-[240px] h-[160px] sm:h-[240px] bg-amber-100 rounded-full blur-2xl opacity-90 mix-blend-screen" />
+
+      {/* 2. Soft Golden Atmospheric Ambiance */}
+      <div className="absolute top-[8%] left-[-2%] w-[320px] sm:w-[500px] h-[320px] sm:h-[500px] bg-amber-200/50 rounded-full blur-3xl mix-blend-soft-light" />
+
+      {/* 3. Rim Light Glow on Card Edge */}
+      <div className="absolute top-[18%] left-[28%] w-[180px] h-[300px] bg-amber-100/30 rounded-full blur-3xl" />
+
+      {/* ----------------- Tree WebP Image ----------------- */}
+      <div className="absolute bottom-0 left-0 w-[220px] sm:w-[380px] md:w-[480px] lg:w-[560px] h-auto opacity-[0.22] mix-blend-multiply transition-all">
+        <img
+          src="/tree.webp"
+          alt=""
+          aria-hidden="true"
+          className="w-full h-auto object-contain object-bottom select-none"
+        />
+      </div>
+
+      {/* ----------------- Birds Silhouette Flying Accent ----------------- */}
+      {/* Positioned safely below the mobile search navbar and clear of the center badge */}
+      <svg
+        className="absolute top-20 sm:top-14 left-[52%] sm:left-[42%] md:left-[46%] w-24 sm:w-32 md:w-40 h-auto text-[#2C2723] opacity-25 z-10 pointer-events-none transition-all"
+        viewBox="0 0 200 120"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <path d="M30,40 Q45,20 60,35 Q75,20 90,40 Q75,32 60,42 Q45,32 30,40 Z" />
+        <path d="M100,20 Q112,5 125,16 Q137,5 150,20 Q137,13 125,22 Q112,13 100,20 Z" />
+        <path d="M145,50 Q153,38 162,47 Q171,38 180,50 Q171,44 162,51 Q153,44 145,50 Z" />
+      </svg>
+      
+    </div>
+  );
+}
+/* -------------------------------------------------------------------------- */
+/*                                Feed Content                                */
+/* -------------------------------------------------------------------------- */
 
 function FeedContent() {
   const router = useRouter();
@@ -139,13 +185,13 @@ function FeedContent() {
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto px-4 py-8 sm:px-8 flex flex-col gap-8">
+    <div className="relative z-10 w-full max-w-5xl mx-auto px-4 py-8 sm:px-8 flex flex-col gap-8">
       {/* Feed Header */}
       <header className="text-center space-y-2 py-2">
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F2EFE9] border border-[#E5E0D8] text-[11px] font-mono tracking-widest uppercase text-[#8C827A]">
+        {/* <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F2EFE9] border border-[#E5E0D8] text-[11px] font-mono tracking-widest uppercase text-[#8C827A]">
           <Sparkles className="w-3 h-3 text-[#B0A69A]" />
           The Daily Anthology
-        </span>
+        </span> */}
         <h1 className="font-serif text-3xl sm:text-4xl italic text-[#2C2723]">
           Poetic Stream
         </h1>
@@ -214,7 +260,7 @@ function FeedContent() {
           poems.map((poem) => (
             <article
               key={poem.id}
-              className="p-8 sm:p-12 rounded-3xl bg-[#FAFAFA] border border-[#EAE8E4] shadow-sm flex flex-col items-center text-center gap-6 hover:border-[#DCD7CE] transition-colors"
+              className="p-8 sm:p-12 rounded-3xl bg-[#F6F4EB]/90 backdrop-blur-sm border border-[#EAE8E4] shadow-sm flex flex-col items-center text-center gap-6 hover:border-[#DCD7CE] transition-colors"
             >
               {/* Category */}
               <span className="text-xs sm:text-sm font-serif italic tracking-wide text-[#786F66]">
@@ -242,7 +288,6 @@ function FeedContent() {
                   </div>
                   <div className="flex items-center gap-1.5 text-[#8C827A] text-[11px] font-mono">
                     <Calendar className="w-3 h-3" />
-                    <span>published On: {formatDate(poem.created_at)}</span>
                   </div>
                   {/* {poem.created_at && (
                     <div className="flex items-center gap-1.5 text-[#8C827A] text-[11px] font-mono">
@@ -279,16 +324,22 @@ function FeedContent() {
   );
 }
 
+
 export default function FeedPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="p-12 text-center font-serif text-[#786F66]">
-          Loading feed...
-        </div>
-      }
-    >
-      <FeedContent />
-    </Suspense>
+    <div className="relative min-h-screen">
+      {/* Background Decor */}
+      <BackgroundArt />
+
+      <Suspense
+        fallback={
+          <div className="p-12 text-center font-serif text-[#786F66] relative z-10">
+            Loading feed...
+          </div>
+        }
+      >
+        <FeedContent />
+      </Suspense>
+    </div>
   );
 }
