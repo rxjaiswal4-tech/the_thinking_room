@@ -97,7 +97,7 @@ export function Navigation({ onCollapseChange }: NavigationProps) {
               </div>
               <div className={`flex flex-col text-left overflow-hidden whitespace-nowrap transition-opacity duration-200 ${isCollapsed ? "lg:hidden" : "block"}`}>
                 <span className="font-serif text-xl tracking-tight text-[#2C2723] font-medium italic">
-                  Verse & Muse
+                  Poetry Stream
                 </span>
                 <span className="text-[10px] font-mono tracking-widest uppercase text-[#8C827A]">
                   Anthology No. 01
