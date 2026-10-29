@@ -201,6 +201,7 @@ export async function PATCH(request: NextRequest) {
               body: contentBody || updatedSub?.body,
               author: author || updatedSub?.author || "Anonymous",
               category: category || updatedSub?.category || "General",
+              language: (language || updatedSub?.language || "english").toLowerCase(),
             },
           ],
           { onConflict: "id" }
@@ -213,6 +214,7 @@ export async function PATCH(request: NextRequest) {
             body: contentBody || updatedSub?.body,
             author: author || updatedSub?.author || "Anonymous",
             category: category || updatedSub?.category || "General",
+            language: (language || updatedSub?.language || "english").toLowerCase(),
           },
         ]);
       }

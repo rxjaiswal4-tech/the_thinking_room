@@ -498,6 +498,7 @@ export default function AdminDashboardPage() {
         body: submission.body,
         author: submission.author || "Anonymous",
         category: submission.category || "General",
+        language: (submission.language || "english").toLowerCase(),
       };
 
       try {
@@ -838,6 +839,7 @@ export default function AdminDashboardPage() {
           body: editingSubmission.body,
           author: editingSubmission.author || "Anonymous",
           category: editingSubmission.category || "General",
+          language: (editingSubmission.language || "english").toLowerCase(),
         };
         try {
           await supabase.from("poems").upsert([poemPayload], { onConflict: "id" });

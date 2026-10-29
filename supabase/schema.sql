@@ -42,6 +42,9 @@ BEGIN
   END IF;
 END $$;
 
+CREATE INDEX IF NOT EXISTS idx_submissions_language ON public.submissions(language);
+CREATE INDEX IF NOT EXISTS idx_submissions_pub_status_lang ON public.submissions(is_published, status, language);
+
 -- 2. Tags Table
 CREATE TABLE IF NOT EXISTS public.tags (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

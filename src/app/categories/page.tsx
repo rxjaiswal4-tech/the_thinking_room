@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import CategoriesMenu from "../components/CategoriesMenu";
 import { Navigation } from "../components/Navigation";
-import { User, Calendar, Clock, Share2, Sparkles, Check } from "lucide-react";
+import { User, Calendar, Clock, Share2, Sparkles, Check, Globe } from "lucide-react";
 
 interface Poem {
   id: string;
@@ -12,13 +12,22 @@ interface Poem {
   body: string;
   author: string;
   category: string;
+  language?: string;
   created_at: string;
   updated_at?: string;
 }
 
+const LANGUAGE_DISPLAY: Record<string, string> = {
+  english: "English",
+  hindi: "Hindi",
+  nepali: "Nepali",
+  urdu: "Urdu",
+};
+
 export default function CategoriesPage() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
   const [poems, setPoems] = useState<Poem[]>([]);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -33,20 +42,32 @@ export default function CategoriesPage() {
       }
 
       try {
-        let query = supabase
-          .from("poems")
-          .select("*");
+        let query = supabase.from("poems").select("*");
 
-        if (selectedCategory) {
+        if (selectedLanguage) {
+          // Language filter uses eq on the language column
+          query = query.eq("language", selectedLanguage);
+        } else if (selectedCategory) {
           query = query.ilike("category", selectedCategory);
         }
 
-        let { data, error } = await query.order("created_at", { ascending: false });
+        let { data, error } = await query.order("created_at", {
+          ascending: false,
+        });
 
         if (error) {
-          // Retry without order
-          const fallback = await query;
-          data = fallback.data;
+          // If language column doesn't exist yet, fall back to no filter
+          if (selectedLanguage && error.message?.includes("language")) {
+            const fallback = await supabase
+              .from("poems")
+              .select("*")
+              .order("created_at", { ascending: false });
+            data = fallback.data;
+          } else {
+            // Retry without order
+            const fallback = await query;
+            data = fallback.data;
+          }
         }
 
         if (data) {
@@ -60,7 +81,7 @@ export default function CategoriesPage() {
     }
 
     fetchFilteredPoems();
-  }, [selectedCategory]);
+  }, [selectedCategory, selectedLanguage]);
 
   const handleShare = async (poem: Poem) => {
     const shareUrl = `${window.location.origin}/categories?id=${poem.id}`;
@@ -99,6 +120,18 @@ export default function CategoriesPage() {
     });
   };
 
+  // Compute heading label for the results section
+  const sectionHeading = selectedLanguage
+    ? `${LANGUAGE_DISPLAY[selectedLanguage] ?? selectedLanguage} Works`
+    : selectedCategory
+    ? `${selectedCategory} Verses`
+    : "All Collection";
+
+  // Compute empty-state message
+  const emptyMessage = selectedLanguage
+    ? `No published works in ${LANGUAGE_DISPLAY[selectedLanguage] ?? selectedLanguage} yet.`
+    : `No works found under "${selectedCategory || "All Categories"}".`;
+
   return (
     <div className="min-h-screen bg-[#FAF7F2] text-[#2C2A29] relative font-serif selection:bg-[#E8E2D9]">
       <Suspense fallback={<div className="h-16 bg-[#FAF7F2]" />}>
@@ -115,15 +148,26 @@ export default function CategoriesPage() {
             <Suspense fallback={<div className="h-12 bg-[#EAE5DC] rounded animate-pulse" />}>
               <CategoriesMenu
                 selectedCategory={selectedCategory}
-                onSelectCategory={(category) => setSelectedCategory(category)}
+                selectedLanguage={selectedLanguage}
+                onSelectCategory={(category) => {
+                  setSelectedCategory(category);
+                  setSelectedLanguage(null);
+                }}
+                onSelectLanguage={(language) => {
+                  setSelectedLanguage(language);
+                  setSelectedCategory(null);
+                }}
               />
             </Suspense>
           </section>
 
           <section className="space-y-6 pt-4">
             <div className="flex items-center justify-between border-b border-[#E3D9CC] pb-4">
-              <h2 className="text-2xl font-serif text-[#1F1E1D] font-normal">
-                {selectedCategory ? `${selectedCategory} Verses` : "All Collection"}
+              <h2 className="text-2xl font-serif text-[#1F1E1D] font-normal flex items-center gap-2">
+                {selectedLanguage && (
+                  <Globe className="w-5 h-5 text-[#8C827A]" />
+                )}
+                {sectionHeading}
               </h2>
               <span className="text-xs font-mono text-[#7C7775]">
                 {poems.length} {poems.length === 1 ? "result" : "results"}
@@ -146,7 +190,7 @@ export default function CategoriesPage() {
             ) : poems.length === 0 ? (
               <div className="text-center p-12 rounded-3xl bg-[#FAFAFA] border border-[#EAE8E4] font-serif text-[#786F66]">
                 <Sparkles className="w-6 h-6 mx-auto mb-3 text-[#8C827A]" />
-                <p>No works found under "{selectedCategory || "All Categories"}".</p>
+                <p>{emptyMessage}</p>
               </div>
             ) : (
               <div className="flex flex-col gap-10">
@@ -184,6 +228,14 @@ export default function CategoriesPage() {
                             <Clock className="w-3 h-3" />
                             <span>
                               Last Updated: {formatDate(poem.updated_at)}
+                            </span>
+                          </div>
+                        )}
+                        {poem.language && poem.language !== "english" && (
+                          <div className="flex items-center gap-1.5 text-[#8C827A] text-[11px] font-mono">
+                            <Globe className="w-3 h-3" />
+                            <span>
+                              {LANGUAGE_DISPLAY[poem.language] ?? poem.language}
                             </span>
                           </div>
                         )}
