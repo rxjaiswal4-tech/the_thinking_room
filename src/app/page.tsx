@@ -164,7 +164,7 @@ function LandingContent() {
               className="-mt-1 text-sm sm:text-base text-[#5A5654] leading-relaxed max-w-xl mx-auto font-sans font-light"
             >
               Welcome to a quiet digital atelier curated for poets, storytellers,
-              and thinkers. Explore original verse, deep narrative prose, and
+              and overthinkers. Explore original verse, deep narrative prose, and
               insightful literary essays gathered in one unified hearth.
             </motion.p>
 
