@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { isAdminUser } from "@/lib/admin";
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -39,17 +40,16 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  // 3. SECURE RULE: Protect all `/admin` routes
-  // If user tries to access /admin or /admin/dashboard without logging in, redirect to /login
-  if (pathname.startsWith("/admin") && !user) {
+  // 3. SECURE RULE: Protect all `/admin` routes and ensure the signed-in user is an admin.
+  // If user tries to access /admin or /admin/dashboard without logging in, redirect to /login.
+  if (pathname.startsWith("/admin") && (!user || !isAdminUser(user))) {
     const loginUrl = new URL("/login", request.url);
-    // Optional: add a redirect parameter so they return back after login
     loginUrl.searchParams.set("redirectTo", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
   // 4. OPTIONAL: If an authenticated admin visits /login, redirect them straight to /admin/dashboard
-  if (pathname === "/login" && user) {
+  if (pathname === "/login" && user && isAdminUser(user)) {
     return NextResponse.redirect(new URL("/admin/dashboard", request.url));
   }
 

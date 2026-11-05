@@ -3,7 +3,40 @@
 -- Language, Tags, and Admin Submission Workflow Included
 -- ==============================================================================
 
--- 1. Submissions Table
+-- 1. Public published anthology table used by the live site
+CREATE TABLE IF NOT EXISTS public.poems (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  author TEXT NOT NULL DEFAULT 'Anonymous',
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'Reflections',
+  language TEXT NOT NULL DEFAULT 'english',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Ensure language check constraint on public poems
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'check_poems_language'
+  ) THEN
+    ALTER TABLE public.poems
+    ADD CONSTRAINT check_poems_language
+    CHECK (language IN ('english', 'hindi', 'nepali', 'urdu'));
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_poems_language ON public.poems(language);
+
+ALTER TABLE public.poems ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read poems" ON public.poems;
+CREATE POLICY "Allow public read poems"
+  ON public.poems
+  FOR SELECT
+  USING (true);
+
+-- 2. Submissions Table
 CREATE TABLE IF NOT EXISTS public.submissions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   author TEXT NOT NULL,
@@ -95,8 +128,18 @@ CREATE POLICY "Allow authenticated admin all submissions"
   ON public.submissions
   FOR ALL
   TO authenticated
-  USING (true)
-  WITH CHECK (true);
+  USING (
+    (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin' OR
+    (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin' OR
+    (auth.jwt() -> 'app_metadata' ->> 'is_admin') = 'true' OR
+    (auth.jwt() -> 'user_metadata' ->> 'is_admin') = 'true'
+  )
+  WITH CHECK (
+    (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin' OR
+    (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin' OR
+    (auth.jwt() -> 'app_metadata' ->> 'is_admin') = 'true' OR
+    (auth.jwt() -> 'user_metadata' ->> 'is_admin') = 'true'
+  );
 
 -- 6. Tags RLS Policies
 DROP POLICY IF EXISTS "Allow public read access to tags" ON public.tags;

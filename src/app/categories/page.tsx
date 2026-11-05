@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, Suspense } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import CategoriesMenu from "../components/CategoriesMenu";
 import { Navigation } from "../components/Navigation";
@@ -13,6 +14,7 @@ interface Poem {
   author: string;
   category: string;
   language?: string;
+  tags?: string[];
   created_at: string;
   updated_at?: string;
 }
@@ -71,7 +73,55 @@ export default function CategoriesPage() {
         }
 
         if (data) {
-          setPoems(data as Poem[]);
+          // Fetch relational tags from submission_tags
+          const tagsByPoemId: Record<string, string[]> = {};
+          try {
+            const { data: stData } = await supabase
+              .from("submission_tags")
+              .select("submission_id, tag:tags(name)");
+            if (stData) {
+              stData.forEach((row: any) => {
+                const tagName = row.tag?.name;
+                if (row.submission_id && tagName) {
+                  if (!tagsByPoemId[row.submission_id]) tagsByPoemId[row.submission_id] = [];
+                  if (!tagsByPoemId[row.submission_id].includes(tagName)) {
+                    tagsByPoemId[row.submission_id].push(tagName);
+                  }
+                }
+              });
+            }
+          } catch {
+            // ignore
+          }
+
+          const categoryTagsFallback: Record<string, string[]> = {
+            philosophy: ["Philosophy", "Life", "Wisdom"],
+            "free verse": ["FreeVerse", "Poetry", "Soul"],
+            reflections: ["Reflections", "Memory", "Mind"],
+            "nature & sea": ["Nature", "Sea", "Beauty"],
+            sonnets: ["Sonnets", "Love", "Classical"],
+            elegies: ["Elegies", "Grief", "Memory"],
+            "urban life": ["Urban", "Society", "Modern"],
+            nocturne: ["Nocturne", "Night", "Dreams"],
+          };
+
+          const formatted = (data as any[]).map((p) => {
+            let tags: string[] = [];
+            if (Array.isArray(p.tags) && p.tags.length > 0) {
+              tags = p.tags;
+            } else if (tagsByPoemId[p.id] && tagsByPoemId[p.id].length > 0) {
+              tags = tagsByPoemId[p.id];
+            } else {
+              const catKey = (p.category || "").toLowerCase().trim();
+              tags = categoryTagsFallback[catKey] || [p.category || "Poetry", "Anthology"];
+            }
+            return {
+              ...p,
+              tags,
+            };
+          });
+
+          setPoems(formatted as Poem[]);
         }
       } catch (err) {
         console.error("Fetch error:", err);
@@ -207,10 +257,26 @@ export default function CategoriesPage() {
                       {poem.title}
                     </h2>
 
-                    <div className="w-full max-w-3xl my-2 py-4">
+                    <div className="w-full max-w-3xl my-2 py-4 space-y-4">
                       <p className="font-serif text-base sm:text-lg text-[#38332E] leading-relaxed whitespace-pre-line italic">
                         {poem.body}
                       </p>
+
+                      {/* YouTube-style description hashtags */}
+                      {poem.tags && poem.tags.length > 0 && (
+                        <div className="flex flex-wrap items-center justify-center gap-2 pt-3 border-t border-[#EAE5DC]/60">
+                          {poem.tags.map((tag) => (
+                            <Link
+                              key={tag}
+                              href={`/feed?q=${encodeURIComponent(tag)}`}
+                              className="inline-flex items-center text-xs sm:text-sm font-sans font-medium text-[#8C3A32] hover:text-[#5C241E] hover:underline transition-colors cursor-pointer"
+                              title={`View #${tag} in feed`}
+                            >
+                              #{tag}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div className="w-full flex flex-col sm:flex-row items-center sm:items-end justify-between gap-4 pt-6 border-t border-[#F0ECE4] text-xs text-[#786F66] font-serif">

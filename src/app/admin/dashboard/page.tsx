@@ -69,6 +69,9 @@ interface Poem {
   title: string;
   author: string;
   category: string;
+  language?: string;
+  tags?: string[];
+  submission_tags?: SubmissionTagRel[];
   body: string;
 }
 
@@ -269,7 +272,43 @@ export default function AdminDashboardPage() {
         return 0;
       });
 
-      setPublishedPoems(sortedPoems);
+      // Fetch relational tags for poems from submission_tags junction table
+      const tagsByPoemId: Record<string, SubmissionTagRel[]> = {};
+      try {
+        const { data: stData } = await supabase
+          .from("submission_tags")
+          .select("submission_id, tag:tags(id, name, slug, is_preset)");
+
+        if (stData) {
+          stData.forEach((row: any) => {
+            if (row.submission_id && row.tag) {
+              if (!tagsByPoemId[row.submission_id]) {
+                tagsByPoemId[row.submission_id] = [];
+              }
+              tagsByPoemId[row.submission_id].push({ tag: row.tag });
+            }
+          });
+        }
+      } catch (stErr) {
+        console.warn("Could not load poem tags in dashboard:", stErr);
+      }
+
+      const poemsWithTags: Poem[] = (sortedPoems || []).map((p: any) => {
+        const relTags = tagsByPoemId[p.id] || [];
+        let tags: string[] = [];
+        if (Array.isArray(p.tags) && p.tags.length > 0) {
+          tags = p.tags;
+        } else if (relTags.length > 0) {
+          tags = relTags.map((st) => st.tag.name);
+        }
+        return {
+          ...p,
+          tags,
+          submission_tags: relTags,
+        };
+      });
+
+      setPublishedPoems(poemsWithTags);
     } catch (err: any) {
       console.error("Poems load error:", err);
       setErrorDetails((prev) =>
@@ -333,9 +372,45 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // Helper: Extract valid TagItem[] from a Submission safely
+  const getSubmissionTags = (sub: Submission): TagItem[] => {
+    if (sub.submission_tags && Array.isArray(sub.submission_tags)) {
+      const extracted = sub.submission_tags
+        .map((st: any) => st?.tag || (st?.name ? st : null))
+        .filter(Boolean);
+      if (extracted.length > 0) return extracted;
+    }
+    if ((sub as any).tags && Array.isArray((sub as any).tags)) {
+      return (sub as any).tags.map((t: any) =>
+        typeof t === "string"
+          ? { name: t, slug: t.toLowerCase().replace(/[^a-z0-9]+/g, "-"), is_preset: false }
+          : t
+      );
+    }
+    return [];
+  };
+
+  // Helper: Extract valid string[] tag names from a published Poem safely
+  const getPoemTags = (poem: Poem): string[] => {
+    if (poem.tags && Array.isArray(poem.tags) && poem.tags.length > 0) {
+      return poem.tags.map((t: any) => (typeof t === "string" ? t : t?.name)).filter(Boolean);
+    }
+    if (poem.submission_tags && Array.isArray(poem.submission_tags)) {
+      const extracted = poem.submission_tags
+        .map((st: any) => st?.tag?.name || st?.name)
+        .filter(Boolean);
+      if (extracted.length > 0) return extracted;
+    }
+    const matchingSub = submissions.find((s) => s.id === poem.id);
+    if (matchingSub) {
+      return getSubmissionTags(matchingSub).map((t) => t.name);
+    }
+    return [];
+  };
+
   // Open submission for review: Transitions status to under_review if currently submitted
   const handleReviewSubmission = async (submission: Submission) => {
-    const attached = (submission.submission_tags || []).map((st) => st.tag).filter(Boolean);
+    const attached = getSubmissionTags(submission);
     setModalTags(attached);
     setEditingSubmission(submission);
     setTagError(null);
@@ -362,11 +437,43 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Open modal for editing
+  // Open modal for editing submission
   const handleOpenEdit = (submission: Submission) => {
-    const attached = (submission.submission_tags || []).map((st) => st.tag).filter(Boolean);
+    const attached = getSubmissionTags(submission);
     setModalTags(attached);
     setEditingSubmission(submission);
+    setTagError(null);
+    setIsCreatingTag(false);
+  };
+
+  // Open modal for editing published poem & its tags
+  const handleOpenEditPoem = (poem: Poem) => {
+    const poemTagNames = getPoemTags(poem);
+    const tagItems: TagItem[] = poemTagNames.map((name) => {
+      const match = availableTags.find(
+        (t) => t.name.toLowerCase() === name.toLowerCase() || t.slug.toLowerCase() === name.toLowerCase()
+      );
+      if (match) return match;
+      return {
+        name,
+        slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        is_preset: false,
+      };
+    });
+
+    setModalTags(tagItems);
+    setEditingSubmission({
+      id: poem.id,
+      title: poem.title,
+      author: poem.author || "Anonymous",
+      category: poem.category || "General",
+      language: poem.language || "english",
+      body: poem.body,
+      status: "published",
+      is_published: true,
+      created_at: poem.created_at,
+      submission_tags: tagItems.map((t) => ({ tag: t })),
+    });
     setTagError(null);
     setIsCreatingTag(false);
   };
@@ -491,8 +598,10 @@ export default function AdminDashboardPage() {
         });
       }
 
-      // 2. Sync to poems table for live public feed
-      const poemPayload = {
+      // 2. Sync to poems table for live public feed with tags
+      const subTags = getSubmissionTags(submission);
+      const tagNames = subTags.map((t) => t.name);
+      const poemPayload: any = {
         id: submission.id,
         title: submission.title,
         body: submission.body,
@@ -500,11 +609,41 @@ export default function AdminDashboardPage() {
         category: submission.category || "General",
         language: (submission.language || "english").toLowerCase(),
       };
+      if (tagNames.length > 0) {
+        poemPayload.tags = tagNames;
+      }
 
       try {
         await supabase.from("poems").upsert([poemPayload], { onConflict: "id" });
       } catch {
-        await supabase.from("poems").insert([poemPayload]);
+        delete poemPayload.tags;
+        try {
+          await supabase.from("poems").upsert([poemPayload], { onConflict: "id" });
+        } catch {
+          await supabase.from("poems").insert([poemPayload]);
+        }
+      }
+
+      // Also ensure submission_tags junction table has the links
+      try {
+        if (subTags.length > 0) {
+          const linksToInsert = [];
+          for (const t of subTags) {
+            let tId = t.id;
+            if (!tId) {
+              const { data: dbT } = await supabase.from("tags").select("id").eq("slug", t.slug).maybeSingle();
+              if (dbT) tId = dbT.id;
+            }
+            if (tId) {
+              linksToInsert.push({ submission_id: submission.id, tag_id: tId });
+            }
+          }
+          if (linksToInsert.length > 0) {
+            await supabase.from("submission_tags").upsert(linksToInsert, { onConflict: "submission_id,tag_id" });
+          }
+        }
+      } catch {
+        // ignore
       }
 
       // 3. Update local state
@@ -522,6 +661,9 @@ export default function AdminDashboardPage() {
         body: submission.body,
         author: submission.author || "Anonymous",
         category: submission.category || "General",
+        language: (submission.language || "english").toLowerCase(),
+        tags: tagNames,
+        submission_tags: subTags.map((t) => ({ tag: t })),
         created_at: submission.created_at || new Date().toISOString(),
       };
 
@@ -833,7 +975,8 @@ export default function AdminDashboardPage() {
 
       // 3. Sync live poems if published
       if (willBePublished) {
-        const poemPayload = {
+        const tagNames = modalTags.map((t) => t.name);
+        const poemPayload: any = {
           id: editingSubmission.id,
           title: editingSubmission.title,
           body: editingSubmission.body,
@@ -841,14 +984,35 @@ export default function AdminDashboardPage() {
           category: editingSubmission.category || "General",
           language: (editingSubmission.language || "english").toLowerCase(),
         };
+        if (tagNames.length > 0) {
+          poemPayload.tags = tagNames;
+        }
+
         try {
           await supabase.from("poems").upsert([poemPayload], { onConflict: "id" });
         } catch {
-          await supabase.from("poems").insert([poemPayload]);
+          delete poemPayload.tags;
+          try {
+            await supabase.from("poems").upsert([poemPayload], { onConflict: "id" });
+          } catch {
+            await supabase.from("poems").insert([poemPayload]);
+          }
         }
 
+        const updatedPoem: Poem = {
+          id: editingSubmission.id,
+          title: editingSubmission.title,
+          body: editingSubmission.body,
+          author: editingSubmission.author || "Anonymous",
+          category: editingSubmission.category || "General",
+          language: (editingSubmission.language || "english").toLowerCase(),
+          tags: tagNames,
+          submission_tags: modalTags.map((t) => ({ tag: t })),
+          created_at: editingSubmission.created_at || new Date().toISOString(),
+        };
+
         setPublishedPoems((prev) => [
-          poemPayload as Poem,
+          updatedPoem,
           ...prev.filter((p) => p.id !== editingSubmission.id),
         ]);
       } else {
@@ -1326,19 +1490,32 @@ export default function AdminDashboardPage() {
                         </p>
                       </div>
 
-                      {/* Tags Badges */}
-                      {item.submission_tags && item.submission_tags.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {item.submission_tags.map(({ tag }) => (
+                      {/* Tags Row */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[11px] font-mono text-[#7C7775] uppercase tracking-wider flex items-center gap-1">
+                          <TagIcon className="w-3 h-3 text-[#8C3A32]" /> Tags:
+                        </span>
+                        {getSubmissionTags(item).length > 0 ? (
+                          getSubmissionTags(item).map((t) => (
                             <span
-                              key={tag.slug || tag.name}
-                              className="px-2.5 py-0.5 rounded-full bg-[#F3EFEA] border border-[#E3D9CC] text-[10px] font-serif text-[#5A5654]"
+                              key={t.slug || t.name}
+                              className="px-2.5 py-0.5 rounded-full bg-[#F3EFEA] border border-[#E3D9CC] text-[10px] font-serif text-[#5A5654] font-medium"
                             >
-                              #{tag.name}
+                              #{t.name}
                             </span>
-                          ))}
-                        </div>
-                      )}
+                          ))
+                        ) : (
+                          <span className="text-[11px] font-serif text-[#7C7775] italic">
+                            No tags attached
+                          </span>
+                        )}
+                        <button
+                          onClick={() => handleOpenEdit(item)}
+                          className="text-[11px] font-serif text-[#8C3A32] hover:underline cursor-pointer ml-1 font-medium"
+                        >
+                          + Edit Tags
+                        </button>
+                      </div>
 
                       {/* Body Text */}
                       <div className="p-5 rounded-2xl bg-[#F3EFEA]/50 border border-[#E3D9CC]/60">
@@ -1478,6 +1655,13 @@ export default function AdminDashboardPage() {
                             <Check className="w-3 h-3" /> Live
                           </span>
                           <button
+                            onClick={() => handleOpenEditPoem(poem)}
+                            className="p-1 text-[#7C7775] hover:text-[#8C3A32] transition-colors cursor-pointer"
+                            title="Edit poem & tags"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
                             onClick={() => handleDeletePublishedPoem(poem.id, poem.title)}
                             disabled={actionLoadingId === poem.id}
                             className="p-1 text-[#7C7775] hover:text-red-600 transition-colors cursor-pointer"
@@ -1491,6 +1675,33 @@ export default function AdminDashboardPage() {
                       <div>
                         <h3 className="font-serif text-xl text-[#1F1E1D]">{poem.title}</h3>
                         <p className="text-xs font-serif text-[#7C7775]">By {poem.author || "Anonymous"}</p>
+                      </div>
+
+                      {/* Tags Row for Published Poem */}
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <span className="text-[11px] font-mono text-[#7C7775] uppercase tracking-wider flex items-center gap-1">
+                          <TagIcon className="w-3 h-3 text-[#8C3A32]" /> Tags:
+                        </span>
+                        {getPoemTags(poem).length > 0 ? (
+                          getPoemTags(poem).map((tag) => (
+                            <span
+                              key={tag}
+                              className="px-2.5 py-0.5 rounded-full bg-[#EAE5DC] text-[#2C2A29] text-[10px] font-mono"
+                            >
+                              #{tag}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-[11px] font-serif text-[#7C7775] italic">
+                            No tags attached
+                          </span>
+                        )}
+                        <button
+                          onClick={() => handleOpenEditPoem(poem)}
+                          className="text-[11px] font-serif text-[#8C3A32] hover:underline cursor-pointer ml-1 font-medium"
+                        >
+                          + Edit Tags
+                        </button>
                       </div>
 
                       <div className="p-4 rounded-2xl bg-[#F3EFEA]/40 border border-[#E3D9CC]/50">

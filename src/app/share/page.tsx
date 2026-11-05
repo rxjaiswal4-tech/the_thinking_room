@@ -383,7 +383,7 @@ export default function SharePoemPage() {
               if (dbTag?.id) {
                 tagId = dbTag.id;
               } else {
-                const { data: createdDbTag } = await supabase
+                const { data: createdDbTag, error: createTagErr } = await supabase
                   .from("tags")
                   .insert([
                     {
@@ -397,6 +397,14 @@ export default function SharePoemPage() {
 
                 if (createdDbTag?.id) {
                   tagId = createdDbTag.id;
+                } else if (createTagErr) {
+                  // If already exists, re-fetch
+                  const { data: retryTag } = await supabase
+                    .from("tags")
+                    .select("id")
+                    .eq("slug", tag.slug.toLowerCase().trim())
+                    .maybeSingle();
+                  if (retryTag?.id) tagId = retryTag.id;
                 }
               }
             }
@@ -585,6 +593,7 @@ export default function SharePoemPage() {
               onChange={handleChange}
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E3D9CC] bg-[#F3EFEA] text-xs focus:outline-none focus:border-[#2C2A29] transition-colors cursor-pointer"
             >
+              <option value="Philosophy">Philosophy</option>
               <option value="Reflections">Reflections</option>
               <option value="Free Verse">Free Verse</option>
               <option value="Sonnets">Sonnets</option>

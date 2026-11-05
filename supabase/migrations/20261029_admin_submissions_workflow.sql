@@ -58,6 +58,16 @@ CREATE POLICY "Allow authenticated admin all submissions"
   ON public.submissions
   FOR ALL
   TO authenticated
-  USING (true)
-  WITH CHECK (true);
+  USING (
+    (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin' OR
+    (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin' OR
+    (auth.jwt() -> 'app_metadata' ->> 'is_admin') = 'true' OR
+    (auth.jwt() -> 'user_metadata' ->> 'is_admin') = 'true'
+  )
+  WITH CHECK (
+    (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin' OR
+    (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin' OR
+    (auth.jwt() -> 'app_metadata' ->> 'is_admin') = 'true' OR
+    (auth.jwt() -> 'user_metadata' ->> 'is_admin') = 'true'
+  );
 

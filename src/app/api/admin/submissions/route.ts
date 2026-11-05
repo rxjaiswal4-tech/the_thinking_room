@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { isAdminUser } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,10 @@ export async function GET(request: NextRequest) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
+
+    if (!user || !isAdminUser(user)) {
+      return NextResponse.json({ error: "Forbidden: admin access required" }, { status: 403 });
+    }
 
     let { data, error } = await supabase
       .from("submissions")
@@ -80,6 +85,10 @@ export async function PATCH(request: NextRequest) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
+
+    if (!user || !isAdminUser(user)) {
+      return NextResponse.json({ error: "Forbidden: admin access required" }, { status: 403 });
+    }
 
     const body = await request.json();
     const { id, title, author, category, language, body: contentBody, status, is_published, email, instagram, tags } = body;
@@ -192,31 +201,32 @@ export async function PATCH(request: NextRequest) {
 
     // Sync with poems table for public view if published
     if (updatePayload.is_published === true || updatePayload.status === "published") {
+      const tagNames = Array.isArray(tags)
+        ? tags.map((t: any) => (typeof t === "string" ? t.trim() : t?.name?.trim())).filter(Boolean)
+        : [];
+
+      const poemPayload: any = {
+        id: id,
+        title: title || updatedSub?.title,
+        body: contentBody || updatedSub?.body,
+        author: author || updatedSub?.author || "Anonymous",
+        category: category || updatedSub?.category || "General",
+        language: (language || updatedSub?.language || "english").toLowerCase(),
+      };
+      if (tagNames.length > 0) {
+        poemPayload.tags = tagNames;
+      }
+
       try {
-        await supabase.from("poems").upsert(
-          [
-            {
-              id: id,
-              title: title || updatedSub?.title,
-              body: contentBody || updatedSub?.body,
-              author: author || updatedSub?.author || "Anonymous",
-              category: category || updatedSub?.category || "General",
-              language: (language || updatedSub?.language || "english").toLowerCase(),
-            },
-          ],
-          { onConflict: "id" }
-        );
+        await supabase.from("poems").upsert([poemPayload], { onConflict: "id" });
       } catch (poemSyncErr) {
-        // If upsert fails due to schema, attempt insert
-        await supabase.from("poems").insert([
-          {
-            title: title || updatedSub?.title,
-            body: contentBody || updatedSub?.body,
-            author: author || updatedSub?.author || "Anonymous",
-            category: category || updatedSub?.category || "General",
-            language: (language || updatedSub?.language || "english").toLowerCase(),
-          },
-        ]);
+        // If upsert fails due to tags column, retry without tags
+        delete poemPayload.tags;
+        try {
+          await supabase.from("poems").upsert([poemPayload], { onConflict: "id" });
+        } catch {
+          await supabase.from("poems").insert([poemPayload]);
+        }
       }
     } else if (updatePayload.is_published === false || (updatePayload.status && updatePayload.status !== "published")) {
       // If unpublished, ensure removed from live poems
@@ -247,6 +257,10 @@ export async function DELETE(request: NextRequest) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
+
+    if (!user || !isAdminUser(user)) {
+      return NextResponse.json({ error: "Forbidden: admin access required" }, { status: 403 });
+    }
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");

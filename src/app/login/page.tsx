@@ -15,6 +15,7 @@ import {
   Feather,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import { isAdminUser } from "@/lib/admin";
 
 function LoginContent() {
   const router = useRouter();
@@ -39,6 +40,11 @@ function LoginContent() {
       });
 
       if (error) throw error;
+
+      if (!data?.user || !isAdminUser(data.user)) {
+        await supabase.auth.signOut();
+        throw new Error("This account does not have admin access.");
+      }
 
       if (data?.session) {
         // Refresh server components and cookies before navigating

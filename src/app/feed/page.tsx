@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Share2, Sparkles, Clock, Calendar, User, Search, X, Check } from "lucide-react";
+import { Share2, Clock, User, Search, X, Check } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { HighlightText } from "../components/HighlightsText";
 
@@ -12,6 +12,8 @@ interface Poem {
   body: string;
   author: string;
   category: string;
+  language?: string;
+  tags?: string[];
   created_at: string;
   updated_at?: string;
 }
@@ -23,10 +25,23 @@ const fallbackPoems: Poem[] = [
     title: "The Importance of Critical Thinking",
     body: "Critical thinking is the intellect's compass through uncertainty. It demands that we scrutinize assumptions, measure evidence without bias, and embrace truth over comfort.",
     author: "John Doe",
+    tags: ["Philosophy", "Life", "Wisdom"],
     created_at: "2026-08-05T00:00:00Z",
     updated_at: "2026-08-06T00:00:00Z",
   },
 ];
+
+const categoryTagsFallback: Record<string, string[]> = {
+  philosophy: ["Philosophy", "Life", "Wisdom"],
+  "free verse": ["FreeVerse", "Poetry", "Soul"],
+  reflections: ["Reflections", "Memory", "Mind"],
+  "nature & sea": ["Nature", "Sea", "Beauty"],
+  sonnets: ["Sonnets", "Love", "Classical"],
+  elegies: ["Elegies", "Grief", "Memory"],
+  "urban life": ["Urban", "Society", "Modern"],
+  nocturne: ["Nocturne", "Night", "Dreams"],
+};
+
 /* -------------------------------------------------------------------------- */
 /*                          Background Art & Decor                             */
 /* -------------------------------------------------------------------------- */
@@ -34,7 +49,6 @@ const fallbackPoems: Poem[] = [
 function BackgroundArt() {
   return (
     <div className="pointer-events-none fixed inset-0 overflow-hidden select-none z-0">
-      
       {/* 1. Intense Sun Core */}
       <div className="absolute top-[22%] left-[8%] sm:left-[14%] w-[160px] sm:w-[240px] h-[160px] sm:h-[240px] bg-amber-100 rounded-full blur-2xl opacity-90 mix-blend-screen" />
 
@@ -44,7 +58,7 @@ function BackgroundArt() {
       {/* 3. Rim Light Glow on Card Edge */}
       <div className="absolute top-[18%] left-[28%] w-[180px] h-[300px] bg-amber-100/30 rounded-full blur-3xl" />
 
-      {/* ----------------- Tree WebP Image ----------------- */}
+      {/* Tree WebP Image */}
       <div className="absolute bottom-0 left-0 w-[220px] sm:w-[380px] md:w-[480px] lg:w-[560px] h-auto opacity-[0.22] mix-blend-multiply transition-all">
         <img
           src="/tree.webp"
@@ -54,8 +68,7 @@ function BackgroundArt() {
         />
       </div>
 
-      {/* ----------------- Birds Silhouette Flying Accent ----------------- */}
-      {/* Positioned safely below the mobile search navbar and clear of the center badge */}
+      {/* Birds Silhouette Flying Accent */}
       <svg
         className="absolute top-20 sm:top-14 left-[52%] sm:left-[42%] md:left-[46%] w-24 sm:w-32 md:w-40 h-auto text-[#2C2723] opacity-25 z-10 pointer-events-none transition-all"
         viewBox="0 0 200 120"
@@ -66,10 +79,10 @@ function BackgroundArt() {
         <path d="M100,20 Q112,5 125,16 Q137,5 150,20 Q137,13 125,22 Q112,13 100,20 Z" />
         <path d="M145,50 Q153,38 162,47 Q171,38 180,50 Q171,44 162,51 Q153,44 145,50 Z" />
       </svg>
-      
     </div>
   );
 }
+
 /* -------------------------------------------------------------------------- */
 /*                                Feed Content                                */
 /* -------------------------------------------------------------------------- */
@@ -88,14 +101,15 @@ function FeedContent() {
 
     if (!supabase) {
       if (searchQuery) {
-        const q = searchQuery.toLowerCase();
+        const q = searchQuery.toLowerCase().replace(/^#/, "");
         setPoems(
           fallbackPoems.filter(
             (p) =>
               p.title.toLowerCase().includes(q) ||
               p.body.toLowerCase().includes(q) ||
               p.author.toLowerCase().includes(q) ||
-              p.category.toLowerCase().includes(q)
+              p.category.toLowerCase().includes(q) ||
+              p.tags?.some((t) => t.toLowerCase().includes(q))
           )
         );
       } else {
@@ -108,8 +122,9 @@ function FeedContent() {
     try {
       let queryBuilder = supabase.from("poems").select("*");
 
-      if (searchQuery.trim()) {
-        const term = `%${searchQuery.trim()}%`;
+      const cleanQuery = searchQuery.trim().toLowerCase().replace(/^#/, "");
+      if (cleanQuery) {
+        const term = `%${cleanQuery}%`;
         queryBuilder = queryBuilder.or(
           `title.ilike.${term},body.ilike.${term},author.ilike.${term},category.ilike.${term}`
         );
@@ -117,20 +132,79 @@ function FeedContent() {
 
       const { data, error } = await queryBuilder.order("created_at", { ascending: false });
 
+      let basePoems: any[] = [];
       if (error) {
-        // Retry without order in case created_at is not configured
         const fallback = await queryBuilder;
         if (fallback.error) {
           console.error("Supabase Error:", fallback.error);
-          setPoems(fallbackPoems);
+          basePoems = fallbackPoems;
         } else {
-          setPoems((fallback.data as Poem[]) || []);
+          basePoems = fallback.data || [];
         }
-      } else if (!data || data.length === 0) {
-        setPoems([]);
       } else {
-        setPoems(data as Poem[]);
+        basePoems = data || [];
       }
+
+      // Fetch relational tags from submission_tags junction table
+      const tagsByPoemId: Record<string, string[]> = {};
+      try {
+        const { data: stData } = await supabase
+          .from("submission_tags")
+          .select("submission_id, tag:tags(name, slug)");
+
+        if (stData) {
+          stData.forEach((row: any) => {
+            const tagName = row.tag?.name;
+            if (row.submission_id && tagName) {
+              if (!tagsByPoemId[row.submission_id]) {
+                tagsByPoemId[row.submission_id] = [];
+              }
+              if (!tagsByPoemId[row.submission_id].includes(tagName)) {
+                tagsByPoemId[row.submission_id].push(tagName);
+              }
+            }
+          });
+        }
+      } catch (stErr) {
+        console.warn("Could not query submission_tags in feed:", stErr);
+      }
+
+      // Resolve tags for each poem
+      let resolvedPoems: Poem[] = basePoems.map((p: any) => {
+        let tags: string[] = [];
+        if (Array.isArray(p.tags) && p.tags.length > 0) {
+          tags = p.tags;
+        } else if (typeof p.tags === "string" && p.tags.trim()) {
+          tags = p.tags
+            .split(",")
+            .map((t: string) => t.trim().replace(/^#/, ""))
+            .filter(Boolean);
+        } else if (tagsByPoemId[p.id] && tagsByPoemId[p.id].length > 0) {
+          tags = tagsByPoemId[p.id];
+        } else {
+          const catKey = (p.category || "").toLowerCase().trim();
+          tags = categoryTagsFallback[catKey] || [p.category || "Poetry", "Anthology"];
+        }
+
+        return {
+          ...p,
+          tags,
+        };
+      });
+
+      // Filter by tag if user searched with tag or general search
+      if (cleanQuery) {
+        resolvedPoems = resolvedPoems.filter((p) => {
+          const inTitle = p.title.toLowerCase().includes(cleanQuery);
+          const inBody = p.body.toLowerCase().includes(cleanQuery);
+          const inAuthor = p.author.toLowerCase().includes(cleanQuery);
+          const inCat = p.category.toLowerCase().includes(cleanQuery);
+          const inTags = p.tags?.some((t) => t.toLowerCase().includes(cleanQuery));
+          return inTitle || inBody || inAuthor || inCat || inTags;
+        });
+      }
+
+      setPoems(resolvedPoems);
     } catch (err) {
       console.error("Error fetching poems:", err);
       setPoems(fallbackPoems);
@@ -179,24 +253,23 @@ function FeedContent() {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-GB", {
       day: "2-digit",
-      month: "long",
+      month: "short",
       year: "numeric",
     });
   };
 
   return (
-    <div className="relative z-10 w-full max-w-5xl mx-auto px-4 py-8 sm:px-8 flex flex-col gap-8">
-      {/* Feed Header */}
-      <header className="text-center space-y-2 py-2">
-        {/* <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F2EFE9] border border-[#E5E0D8] text-[11px] font-mono tracking-widest uppercase text-[#8C827A]">
-          <Sparkles className="w-3 h-3 text-[#B0A69A]" />
-          The Daily Anthology
-        </span> */}
-        <h1 className="font-serif text-3xl sm:text-4xl italic text-[#2C2723]">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-14 pb-16 space-y-12 relative z-10">
+      {/* Header Accent */}
+      <header className="text-center space-y-2">
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F2EFE9] border border-[#E5E0D8] text-[11px] font-mono tracking-widest uppercase text-[#8C827A]">
+          Anthology Feed
+        </span>
+        <h1 className="text-3xl sm:text-4xl italic text-[#2C2723] font-serif">
           Poetic Stream
         </h1>
-        <p className="text-xs sm:text-sm text-[#786F66] font-serif italic">
-          A silent space for original verse and unhurried thoughts.
+        <p className="text-xs sm:text-sm text-[#786F66] italic font-serif">
+          A synchronized river of contemplative thought, verse, and quiet observation.
         </p>
       </header>
 
@@ -272,11 +345,27 @@ function FeedContent() {
                 <HighlightText text={poem.title} query={searchQuery} />
               </h2>
 
-              {/* Article Content */}
-              <div className="w-full max-w-3xl my-2 py-4">
+              {/* Article Content / Description */}
+              <div className="w-full max-w-3xl my-2 py-4 space-y-4">
                 <p className="font-serif text-base sm:text-lg text-[#38332E] leading-relaxed whitespace-pre-line italic">
                   <HighlightText text={poem.body} query={searchQuery} />
                 </p>
+
+                {/* YouTube-style description hashtags */}
+                {poem.tags && poem.tags.length > 0 && (
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-3 border-t border-[#EAE5DC]/60">
+                    {poem.tags.map((tag) => (
+                      <button
+                        key={tag}
+                        onClick={() => router.push(`/feed?q=${encodeURIComponent(tag)}`)}
+                        className="inline-flex items-center text-xs sm:text-sm font-sans font-medium text-[#8C3A32] hover:text-[#5C241E] hover:underline transition-colors cursor-pointer"
+                        title={`Filter feed by #${tag}`}
+                      >
+                        #{tag}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Footer Layout */}
@@ -286,9 +375,6 @@ function FeedContent() {
                     <User className="w-3.5 h-3.5 text-[#8C827A]" />
                     <span>Author: {poem.author || "Anonymous"}</span>
                   </div>
-                  {/* <div className="flex items-center gap-1.5 text-[#8C827A] text-[11px] font-mono">
-                    <Calendar className="w-3 h-3" />
-                  </div> */}
                   {poem.created_at && (
                     <div className="flex items-center gap-1.5 text-[#8C827A] text-[11px] font-mono">
                       <Clock className="w-3 h-3" />
@@ -323,7 +409,6 @@ function FeedContent() {
     </div>
   );
 }
-
 
 export default function FeedPage() {
   return (

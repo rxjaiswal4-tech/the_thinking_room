@@ -25,6 +25,7 @@ import {
   Plus,
   AlertCircle,
   RotateCcw,
+  Tag as TagIcon,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -272,9 +273,27 @@ export default function AdminShareContentPage() {
     }
   };
 
+  // Helper: Extract valid TagItem[] from a Submission safely
+  const getSubmissionTags = (sub: Submission): TagItem[] => {
+    if (sub.submission_tags && Array.isArray(sub.submission_tags)) {
+      const extracted = sub.submission_tags
+        .map((st: any) => st?.tag || (st?.name ? st : null))
+        .filter(Boolean);
+      if (extracted.length > 0) return extracted;
+    }
+    if ((sub as any).tags && Array.isArray((sub as any).tags)) {
+      return (sub as any).tags.map((t: any) =>
+        typeof t === "string"
+          ? { name: t, slug: t.toLowerCase().replace(/[^a-z0-9]+/g, "-"), is_preset: false }
+          : t
+      );
+    }
+    return [];
+  };
+
   // Open submission for review: Sets status to under_review if currently submitted
   const handleReviewSubmission = async (submission: Submission) => {
-    const attached = (submission.submission_tags || []).map((st) => st.tag).filter(Boolean);
+    const attached = getSubmissionTags(submission);
     setModalTags(attached);
     setEditingSubmission(submission);
     setTagError(null);
@@ -303,7 +322,7 @@ export default function AdminShareContentPage() {
 
   // Open modal for editing
   const handleOpenEdit = (submission: Submission) => {
-    const attached = (submission.submission_tags || []).map((st) => st.tag).filter(Boolean);
+    const attached = getSubmissionTags(submission);
     setModalTags(attached);
     setEditingSubmission(submission);
     setTagError(null);
@@ -425,8 +444,10 @@ export default function AdminShareContentPage() {
         });
       }
 
-      // 2. Sync to poems table for live public feed
-      const poemPayload = {
+      // 2. Sync to poems table for live public feed with tags
+      const subTags = getSubmissionTags(submission);
+      const tagNames = subTags.map((t) => t.name);
+      const poemPayload: any = {
         id: submission.id,
         title: submission.title,
         body: submission.body,
@@ -434,11 +455,41 @@ export default function AdminShareContentPage() {
         category: submission.category || "General",
         language: (submission.language || "english").toLowerCase(),
       };
+      if (tagNames.length > 0) {
+        poemPayload.tags = tagNames;
+      }
 
       try {
         await supabase.from("poems").upsert([poemPayload], { onConflict: "id" });
       } catch {
-        await supabase.from("poems").insert([poemPayload]);
+        delete poemPayload.tags;
+        try {
+          await supabase.from("poems").upsert([poemPayload], { onConflict: "id" });
+        } catch {
+          await supabase.from("poems").insert([poemPayload]);
+        }
+      }
+
+      // Also ensure submission_tags junction table has links
+      try {
+        if (subTags.length > 0) {
+          const linksToInsert = [];
+          for (const t of subTags) {
+            let tId = t.id;
+            if (!tId) {
+              const { data: dbT } = await supabase.from("tags").select("id").eq("slug", t.slug).maybeSingle();
+              if (dbT) tId = dbT.id;
+            }
+            if (tId) {
+              linksToInsert.push({ submission_id: submission.id, tag_id: tId });
+            }
+          }
+          if (linksToInsert.length > 0) {
+            await supabase.from("submission_tags").upsert(linksToInsert, { onConflict: "submission_id,tag_id" });
+          }
+        }
+      } catch {
+        // ignore
       }
 
       // 3. Update local state
@@ -716,7 +767,8 @@ export default function AdminShareContentPage() {
 
       // 3. Sync live poems if published
       if (willBePublished) {
-        const poemPayload = {
+        const tagNames = modalTags.map((t) => t.name);
+        const poemPayload: any = {
           id: editingSubmission.id,
           title: editingSubmission.title,
           body: editingSubmission.body,
@@ -724,10 +776,19 @@ export default function AdminShareContentPage() {
           category: editingSubmission.category || "General",
           language: (editingSubmission.language || "english").toLowerCase(),
         };
+        if (tagNames.length > 0) {
+          poemPayload.tags = tagNames;
+        }
+
         try {
           await supabase.from("poems").upsert([poemPayload], { onConflict: "id" });
         } catch {
-          await supabase.from("poems").insert([poemPayload]);
+          delete poemPayload.tags;
+          try {
+            await supabase.from("poems").upsert([poemPayload], { onConflict: "id" });
+          } catch {
+            await supabase.from("poems").insert([poemPayload]);
+          }
         }
       } else {
         try {
@@ -1044,19 +1105,32 @@ export default function AdminShareContentPage() {
                     </p>
                   </div>
 
-                  {/* Tags Badges */}
-                  {item.submission_tags && item.submission_tags.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {item.submission_tags.map(({ tag }) => (
+                  {/* Tags Row */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] font-mono text-[#7C7775] uppercase tracking-wider flex items-center gap-1">
+                      <TagIcon className="w-3 h-3 text-[#8C3A32]" /> Tags:
+                    </span>
+                    {getSubmissionTags(item).length > 0 ? (
+                      getSubmissionTags(item).map((t) => (
                         <span
-                          key={tag.slug || tag.name}
-                          className="px-2.5 py-0.5 rounded-full bg-[#F3EFEA] border border-[#E3D9CC] text-[10px] font-serif text-[#5A5654]"
+                          key={t.slug || t.name}
+                          className="px-2.5 py-0.5 rounded-full bg-[#F3EFEA] border border-[#E3D9CC] text-[10px] font-serif text-[#5A5654] font-medium"
                         >
-                          #{tag.name}
+                          #{t.name}
                         </span>
-                      ))}
-                    </div>
-                  )}
+                      ))
+                    ) : (
+                      <span className="text-[11px] font-serif text-[#7C7775] italic">
+                        No tags attached
+                      </span>
+                    )}
+                    <button
+                      onClick={() => handleOpenEdit(item)}
+                      className="text-[11px] font-serif text-[#8C3A32] hover:underline cursor-pointer ml-1 font-medium"
+                    >
+                      + Edit Tags
+                    </button>
+                  </div>
 
                   {/* Stanza Body */}
                   <div className="p-5 rounded-2xl bg-[#F3EFEA]/50 border border-[#E3D9CC]/60">

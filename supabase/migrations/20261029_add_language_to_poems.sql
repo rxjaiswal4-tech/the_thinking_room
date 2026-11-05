@@ -1,12 +1,24 @@
 -- ==============================================================================
 -- Migration: Add Language Column to Poems Table
 -- Description:
---   Adds 'language' column to the public 'poems' table so that language
---   filtering works on the live published anthology feed.
+--   Ensures the live public anthology table exists and adds the required
+--   'language' column so category and language filters work correctly.
 --   Also back-fills language for existing poems based on common indicators.
 -- ==============================================================================
 
--- 1. Add language column to poems table (default 'english' for existing content)
+-- 1. Ensure the live anthology table exists before adding the language column
+CREATE TABLE IF NOT EXISTS public.poems (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  author TEXT NOT NULL DEFAULT 'Anonymous',
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'Reflections',
+  language TEXT NOT NULL DEFAULT 'english',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 2. Add language column to poems table (default 'english' for existing content)
 ALTER TABLE IF EXISTS public.poems
 ADD COLUMN IF NOT EXISTS language TEXT NOT NULL DEFAULT 'english';
 
