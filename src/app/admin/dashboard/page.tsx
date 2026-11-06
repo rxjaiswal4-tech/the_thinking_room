@@ -1155,7 +1155,7 @@ export default function AdminDashboardPage() {
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#F3EFEA] border border-[#E3D9CC] text-xs font-serif hover:bg-[#E8E2D9] transition-all shadow-sm active:scale-95 text-[#2C2A29]"
             >
               <Rss className="w-3.5 h-3.5 text-[#8C3A32]" />
-              <span>Dashboard Feed</span>
+              <span>Publish content</span>
             </Link>
 
             <Link
@@ -1163,7 +1163,7 @@ export default function AdminDashboardPage() {
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#F3EFEA] border border-[#E3D9CC] text-xs font-serif hover:bg-[#E8E2D9] transition-all shadow-sm active:scale-95 text-[#2C2A29]"
             >
               <Share2 className="w-3.5 h-3.5 text-[#8C3A32]" />
-              <span>Share Content</span>
+              <span>Submitted Content</span>
             </Link>
 
             <button
@@ -1216,7 +1216,7 @@ export default function AdminDashboardPage() {
                 <Rss className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-serif text-sm font-semibold text-[#1F1E1D]">Go to Dashboard Feed</h3>
+                <h3 className="font-serif text-sm font-semibold text-[#1F1E1D]">Go to publish and manage feed</h3>
                 <p className="text-xs font-serif text-[#7C7775]">Publish new poems directly & manage live feed</p>
               </div>
             </div>
@@ -1232,7 +1232,7 @@ export default function AdminDashboardPage() {
                 <Share2 className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-serif text-sm font-semibold text-[#1F1E1D]">Go to Editorial Share Content</h3>
+                <h3 className="font-serif text-sm font-semibold text-[#1F1E1D]">Go to edit submitted content</h3>
                 <p className="text-xs font-serif text-[#7C7775]">Review, edit, and publish community submissions</p>
               </div>
             </div>
@@ -1265,8 +1265,8 @@ export default function AdminDashboardPage() {
               <BookOpen className="w-4 h-4 text-emerald-700" />
             </div>
             <div className="font-serif text-3xl text-[#1F1E1D]">
-              {submissions.filter((s) => s.is_published || s.status === "published").length ||
-                publishedPoems.length}
+             {submissions.filter((s) => s.is_published || s.status === "published").length ||
+               publishedPoems.length}
             </div>
             <p className="text-[11px] font-serif text-[#7C7775]">Live in anthology stream</p>
           </div>
